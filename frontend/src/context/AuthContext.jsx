@@ -18,15 +18,19 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     const token = localStorage.getItem('token');
     const storedUser = localStorage.getItem('user');
-    if (token && storedUser) {
+    
+    // Check if both exist and are valid
+    if (token && storedUser && storedUser !== "undefined") {
       setIsAuthenticated(true);
-      setUser(JSON.parse(storedUser));
+    } else {
+      setIsAuthenticated(false);
     }
-  }, []);
+  }, [user]);
 
   const login = (userData) => {
     setIsAuthenticated(true);
     setUser(userData);
+    // Ensure token is extracted correctly from the response object
     localStorage.setItem('token', userData.token);
     localStorage.setItem('user', JSON.stringify(userData));
   };
@@ -36,7 +40,7 @@ export const AuthProvider = ({ children }) => {
       const token = localStorage.getItem('token');
       if (!token) return;
 
-      const response = await fetch('http://localhost:5000/api/users/profile', {
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/users/profile`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -71,6 +75,9 @@ export const AuthProvider = ({ children }) => {
         localStorage.removeItem(key);
       }
     });
+    
+    // Safety: Clear everything to prevent stale data
+    localStorage.clear(); 
   };
 
   const updateUser = (updatedUserData) => {
