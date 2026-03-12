@@ -20,6 +20,7 @@ import {
   MoreVertical,
   Clock,
 } from "lucide-react";
+
 /* ───────── helpers ───────── */
 const getRelativeTime = (dateStr) => {
   if (!dateStr) return "";
@@ -71,7 +72,7 @@ const categoryColorMap = {
 };
 
 /* ────────────────────────────────────────── */
-/*  MAIN COMPONENT                            */
+/* MAIN COMPONENT                            */
 /* ────────────────────────────────────────── */
 const DiscussionsPage = () => {
   const { user } = useAuth();
@@ -295,7 +296,7 @@ const DiscussionsPage = () => {
   const courseNameForPost = (post) => post.courseName || `Course #${post.courseId}`;
 
   /* ─────────────────────────────────────────────────────── */
-  /*  RENDER                                                  */
+  /* RENDER                                                 */
   /* ─────────────────────────────────────────────────────── */
   return (
     <div className="min-h-screen bg-canvas-alt flex flex-col">
@@ -735,16 +736,16 @@ const DiscussionsPage = () => {
                         <select
                           value={globalCategory}
                           onChange={(e) => setGlobalCategory(e.target.value)}
-                          className="appearance-none  text-red-500 pl-4 pr-10 py-2 bg-gradient-to-r from-pink-500 via-red-500 to-yellow-500 text-white font-semibold rounded-lg shadow-lg focus:outline-none focus:ring-2 focus:ring-orange-500 cursor-pointer transition duration-300 ease-in-out" 
+                          className="appearance-none pl-4 pr-10 py-2 bg-gradient-to-r from-pink-500 via-red-500 to-yellow-500 text-white font-semibold rounded-lg shadow-lg focus:outline-none focus:ring-2 focus:ring-orange-500 cursor-pointer transition duration-300 ease-in-out" 
                         >
-                          <option value=""  className="bg-white text-gray-700 font-semibold">Select Category *</option>
+                          <option value="" className="bg-card text-main font-semibold">Select Category *</option>
                           {GLOBAL_CATEGORIES.map((c) => (
-                            <option key={c} value={c}   className="bg-white text-gray-700 font-semibold">
+                            <option key={c} value={c} className="bg-card text-main font-semibold">
                               {c}
                             </option>
                           ))}
                         </select>
-                        <ChevronDown className="w-4 h-4 text-muted absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
+                        <ChevronDown className="w-4 h-4 text-white/80 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
                       </div>
                       <span
                         className={`text-sm ${
