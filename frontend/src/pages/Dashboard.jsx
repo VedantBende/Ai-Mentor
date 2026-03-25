@@ -602,11 +602,11 @@ const Dashboard = () => {
                   </div>
                 ) : (
                   <div className="p-6  text-muted">
-                    <p>
+                    {/* <p>
                       {normalizedSearchQuery
                         ? "No in-progress courses match your search."
                         : "Start Learning to get your progress tracked!"}
-                    </p>
+                    </p> */}
                     <button                      className="mt-4 px-4 py-2 bg-teal-500 text-white text-sm font-medium rounded-lg hover:bg-teal-600"
                       onClick={() => navigate("/courses")}
                     >
