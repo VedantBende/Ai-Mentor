@@ -25,10 +25,6 @@ const registerUser = async (req, res) => {
     const { firstName, lastName, email, password } = req.body;
     const name = `${firstName} ${lastName}`.trim();
 
-    if (!email || !password) {
-      return res.status(400).json({ message: "Email and password required" });
-    }
-
     const userExists = await User.findOne({ where: { email } });
     if (userExists) {
       return res.status(400).json({ message: "User already exists" });
@@ -64,10 +60,6 @@ const loginUser = async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    if (!email || !password) {
-      return res.status(400).json({ message: "Email and password required" });
-    }
-
     const user = await User.findOne({ where: { email } });
 
     if (!user || !(await user.matchPassword(password))) {
@@ -99,13 +91,6 @@ const changePassword = async (req, res) => {
 
     if (!req.user) {
       return res.status(401).json({ message: "Not authorized" });
-    }
-
-    // validate required fields before proceeding
-    if (!currentPassword || !newPassword) {
-      return res
-        .status(400)
-        .json({ message: "Current password and new password are required" });
     }
 
     const user = await User.findByPk(req.user.id);

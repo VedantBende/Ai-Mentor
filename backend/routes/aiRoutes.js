@@ -3,6 +3,8 @@ import express from "express";
 import fs from "fs";
 import path from "path";
 import { protect } from "../middleware/authMiddleware.js";
+import validate from "../middleware/validate.js";
+import { generateVideoSchema } from "../schemas/aiSchema.js";
 import { getCourseAndLessonTitles } from "../controllers/courseController.js";
 import dotenv from "dotenv";
 dotenv.config();
@@ -13,13 +15,9 @@ const __dirname = path.dirname(__filename);
 
 const router = express.Router();
 
-router.post("/generate-video", protect, async (req, res) => {
+router.post("/generate-video", protect, validate(generateVideoSchema), async (req, res) => {
   try {
     const { courseId, lessonId, celebrity } = req.body;
-
-    if (!courseId || !lessonId || !celebrity) {
-      return res.status(400).json({ message: "Missing required fields" });
-    }
 
     // 🔐 Check purchase
     const purchasedCourse = req.user.purchasedCourses.find(
