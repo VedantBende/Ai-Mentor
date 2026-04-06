@@ -42,7 +42,7 @@ const getCourseDiscussions = async (req, res) => {
     const posts = await CommunityPost.findAll({
       where: { type: "course", courseId: parseInt(courseId) },
       include: [
-        { model: User, as: "author", attributes: ["id", "name", "email", "avatar_url"] },
+        { model: User, as: "author", attributes: ["id", "name", "email", "avatar_url", "googleId"] },
       ],
       order: [["createdAt", "DESC"]],
     });
@@ -76,7 +76,7 @@ const getGlobalDiscussions = async (req, res) => {
     const posts = await CommunityPost.findAll({
       where,
       include: [
-        { model: User, as: "author", attributes: ["id", "name", "email", "avatar_url"] },
+        { model: User, as: "author", attributes: ["id", "name", "email", "avatar_url", "googleId"] },
       ],
       order: [["createdAt", "DESC"]],
     });
@@ -119,7 +119,7 @@ const createCommunityPost = async (req, res) => {
 
     const populated = await CommunityPost.findByPk(post.id, {
       include: [
-        { model: User, as: "author", attributes: ["id", "name", "email", "avatar_url"] },
+        { model: User, as: "author", attributes: ["id", "name", "email", "avatar_url", "googleId"] },
       ],
     });
 
@@ -153,7 +153,7 @@ const editCommunityPost = async (req, res) => {
 
     const updated = await CommunityPost.findByPk(post.id, {
       include: [
-        { model: User, as: "author", attributes: ["id", "name", "email", "avatar_url"] },
+        { model: User, as: "author", attributes: ["id", "name", "email", "avatar_url", "googleId"] },
       ],
     });
 
@@ -221,7 +221,7 @@ const likeCommunityPost = async (req, res) => {
 
     const updated = await CommunityPost.findByPk(post.id, {
       include: [
-        { model: User, as: "author", attributes: ["id", "name", "email", "avatar_url"] },
+        { model: User, as: "author", attributes: ["id", "name", "email", "avatar_url", "googleId"] },
       ],
     });
 
@@ -263,7 +263,7 @@ const dislikeCommunityPost = async (req, res) => {
 
     const updated = await CommunityPost.findByPk(post.id, {
       include: [
-        { model: User, as: "author", attributes: ["id", "name", "email", "avatar_url"] },
+        { model: User, as: "author", attributes: ["id", "name", "email", "avatar_url", "googleId"] },
       ],
     });
 
@@ -293,6 +293,8 @@ const replyCommunityPost = async (req, res) => {
       userId: req.user.id,
       userName: req.user.name,
       userAvatar: req.user.avatar_url || null,
+      isGoogleUser: req.user.isGoogleUser || !!req.user.googleId,
+      googleId: req.user.googleId || null,
       text,
       likes: [],
       dislikes: [],
@@ -316,7 +318,7 @@ const replyCommunityPost = async (req, res) => {
 
     const updated = await CommunityPost.findByPk(post.id, {
       include: [
-        { model: User, as: "author", attributes: ["id", "name", "email", "avatar_url"] },
+        { model: User, as: "author", attributes: ["id", "name", "email", "avatar_url", "googleId"] },
       ],
     });
 
@@ -337,7 +339,7 @@ const getAllCoursePosts = async (req, res) => {
     const posts = await CommunityPost.findAll({
       where: { type: "course" },
       include: [
-        { model: User, as: "author", attributes: ["id", "name", "email", "avatar_url"] },
+        { model: User, as: "author", attributes: ["id", "name", "email", "avatar_url", "googleId"] },
       ],
       order: [["createdAt", "DESC"]],
     });
@@ -606,7 +608,7 @@ const editReply = async (req, res) => {
 
     const updated = await CommunityPost.findByPk(post.id, {
       include: [
-        { model: User, as: "author", attributes: ["id", "name", "email", "avatar_url"] },
+        { model: User, as: "author", attributes: ["id", "name", "email", "avatar_url", "googleId"] },
       ],
     });
 
@@ -650,7 +652,7 @@ const deleteReply = async (req, res) => {
 
     const updated = await CommunityPost.findByPk(post.id, {
       include: [
-        { model: User, as: "author", attributes: ["id", "name", "email", "avatar_url"] },
+        { model: User, as: "author", attributes: ["id", "name", "email", "avatar_url", "googleId"] },
       ],
     });
 
@@ -695,7 +697,7 @@ const unhideContent = async (req, res) => {
 
     const updated = await CommunityPost.findByPk(post.id, {
       include: [
-        { model: User, as: "author", attributes: ["id", "name", "email", "avatar_url"] },
+        { model: User, as: "author", attributes: ["id", "name", "email", "avatar_url", "googleId"] },
       ],
     });
 

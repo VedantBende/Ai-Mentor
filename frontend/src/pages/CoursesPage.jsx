@@ -127,9 +127,20 @@ const CoursesPage = () => {
           {/* Profile photo + name */}
           <div className="flex items-center space-x-5">
             <img
-              src={user?.avatar_url || `https://api.dicebear.com/8.x/initials/svg?seed=${encodeURIComponent(user?.name || user?.email?.split('@')[0] || 'User')}`}
+              src={user?.avatar_url || (user?.isGoogleUser || !!user?.googleId 
+                ? `https://api.dicebear.com/8.x/initials/svg?seed=${encodeURIComponent(user?.name || user?.email?.split('@')[0] || 'User')}`
+                : `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%2394a3b8'%3E%3Cpath d='M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z'/%3E%3C/svg%3E`
+              )}
               alt="Profile"
-              className="w-20 h-20 rounded-full border-3 border-white/80 object-cover shadow-lg"
+              className={`w-20 h-20 rounded-full border-3 border-white/80 object-cover shadow-lg ${!user?.avatar_url && !(user?.isGoogleUser || !!user?.googleId) ? 'p-3 bg-white/20' : ''}`}
+              onError={(e) => {
+                const isGoogle = user?.isGoogleUser || !!user?.googleId;
+                const fallback = isGoogle 
+                  ? `https://api.dicebear.com/8.x/initials/svg?seed=${encodeURIComponent(user?.name || user?.email?.split('@')[0] || 'User')}`
+                  : `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%2394a3b8'%3E%3Cpath d='M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z'/%3E%3C/svg%3E`;
+                e.target.src = fallback;
+                if (!isGoogle) e.target.className += " p-3 bg-white/20";
+              }}
             />
             <div>
               <h1 className="text-3xl sm:text-4xl font-extrabold text-white">

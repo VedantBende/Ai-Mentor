@@ -42,15 +42,21 @@ const getRelativeTime = (dateStr) => {
   return d.toLocaleDateString();
 };
 
-const Avatar = ({ src, name, size = "w-10 h-10" }) => {
-  const imgSrc =
-    src ||
-    `https://api.dicebear.com/8.x/initials/svg?seed=${encodeURIComponent(name || "User")}`;
+const Avatar = ({ src, name, size = "w-10 h-10", isGoogle, googleId }) => {
+  const isGoogleUser = isGoogle || !!googleId;
+  const fallback = isGoogleUser
+    ? `https://api.dicebear.com/8.x/initials/svg?seed=${encodeURIComponent(name || "User")}`
+    : `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%2394a3b8'%3E%3Cpath d='M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z'/%3E%3C/svg%3E`;
+
   return (
     <img
-      src={imgSrc}
+      src={src || fallback}
       alt={name || "User"}
-      className={`${size} rounded-full object-cover shrink-0`}
+      className={`${size} rounded-full object-cover shrink-0 ${!src && !isGoogleUser ? 'p-1.5 bg-slate-100 dark:bg-slate-800 border border-border' : ''}`}
+      onError={(e) => {
+        e.target.src = fallback;
+        if (!isGoogleUser) e.target.className += " p-1.5 bg-slate-100 dark:bg-slate-800 border border-border";
+      }}
     />
   );
 };
@@ -924,7 +930,7 @@ const DiscussionsPage = () => {
                             </div>
                           )}
                           <div className="flex items-start gap-3 mb-3">
-                            <Avatar src={post.author?.avatar_url} name={post.author?.name} />
+                            <Avatar src={post.author?.avatar_url} name={post.author?.name} isGoogle={post.author?.isGoogleUser} googleId={post.author?.googleId} />
                             <div className="min-w-0 flex-1">
                               <div className="flex items-center gap-2 flex-wrap">
                                 <span className="font-semibold text-main text-sm">
@@ -1102,7 +1108,7 @@ const DiscussionsPage = () => {
                             </div>
                           )}
                           <div className="flex items-start gap-3">
-                            <Avatar src={post.author?.avatar_url} name={post.author?.name} size="w-9 h-9" />
+                            <Avatar src={post.author?.avatar_url} name={post.author?.name} size="w-9 h-9" isGoogle={post.author?.isGoogleUser} googleId={post.author?.googleId} />
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center justify-between">
                                 <div className="flex items-center gap-2 flex-wrap">
@@ -1339,7 +1345,7 @@ const DiscussionsPage = () => {
                                       data-parent-post-id={post.id}
                                       className="flex items-start gap-2 group/panelreply"
                                     >
-                                      <Avatar src={r.userAvatar} name={r.userName} size="w-6 h-6" />
+                                      <Avatar src={r.userAvatar} name={r.userName} size="w-6 h-6" isGoogle={r.isGoogleUser} googleId={r.googleId} />
                                       <div className="flex-1">
                                         <div className="flex items-center gap-1">
                                           <span className="text-xs font-medium text-main">
@@ -1587,7 +1593,7 @@ const DiscussionsPage = () => {
                   className="bg-card border border-border rounded-xl p-5 shadow-sm"
                 >
                   <div className="flex items-start gap-3">
-                    <Avatar src={user?.avatar_url} name={user?.name} />
+                    <Avatar src={user?.avatar_url} name={user?.name} isGoogle={user?.isGoogleUser} googleId={user?.googleId} />
                     <textarea
                       value={globalContent}
                       onChange={(e) => {
@@ -1770,7 +1776,7 @@ const DiscussionsPage = () => {
                         )}
                         <div className="flex items-start justify-between mb-3">
                           <div className="flex items-start gap-3">
-                            <Avatar src={post.author?.avatar_url} name={post.author?.name} />
+                            <Avatar src={post.author?.avatar_url} name={post.author?.name} isGoogle={post.author?.isGoogleUser} googleId={post.author?.googleId} />
                             <div>
                               <div className="font-semibold text-main text-sm">
                                 {post.author?.name || "Unknown"}
@@ -1952,7 +1958,7 @@ const DiscussionsPage = () => {
                                     data-parent-post-id={post.id}
                                     className="flex items-start gap-2 group/reply"
                                   >
-                                    <Avatar src={r.userAvatar} name={r.userName} size="w-7 h-7" />
+                                    <Avatar src={r.userAvatar} name={r.userName} size="w-7 h-7" isGoogle={r.isGoogleUser} googleId={r.googleId} />
                                     <div className="flex-1">
                                       <div className="flex items-center gap-2">
                                         <span className="text-xs font-medium text-main">
