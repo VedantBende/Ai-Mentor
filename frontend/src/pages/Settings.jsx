@@ -261,10 +261,21 @@ export default function Settings() {
                               ? URL.createObjectURL(avatarFile)
                               : user?.avatar_url
                                 ? user.avatar_url
-                                : `https://api.dicebear.com/8.x/initials/svg?seed=${formData.firstName}%20${formData.lastName}`
+                                : ( (user?.isGoogleUser || !!user?.googleId) 
+                                    ? `https://api.dicebear.com/8.x/initials/svg?seed=${encodeURIComponent(`${formData.firstName || ""} ${formData.lastName || ""}`.trim() || user?.name || "User")}` 
+                                    : "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2'/%3E%3Ccircle cx='12' cy='7' r='4'/%3E%3C/svg%3E")
                           }
                           alt="Profile"
-                          className="w-32 h-32 rounded-full border-4 border-[rgba(255,135,89,0.65)] shadow-[0_4px_6px_0_rgba(0,0,0,0.10),0_10px_15px_0_rgba(0,0,0,0.10)]"
+                          className={`w-32 h-32 rounded-full border-4 border-[rgba(255,135,89,0.65)] shadow-[0_4px_6px_0_rgba(0,0,0,0.10),0_10px_15px_0_rgba(0,0,0,0.10)] object-cover ${!avatarFile && !user?.avatar_url && !(user?.isGoogleUser || !!user?.googleId) ? 'p-6 bg-canvas-alt' : ''}`}
+                          onError={(e) => {
+                            if (user?.isGoogleUser || !!user?.googleId) {
+                              const seed = encodeURIComponent(`${formData.firstName || ""} ${formData.lastName || ""}`.trim() || user?.name || "User");
+                              e.target.src = `https://api.dicebear.com/8.x/initials/svg?seed=${seed}`;
+                            } else {
+                              e.target.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2'/%3E%3Ccircle cx='12' cy='7' r='4'/%3E%3C/svg%3E";
+                              e.target.classList.add('p-6', 'bg-canvas-alt');
+                            }
+                          }}
                         />
 
                         <label className="absolute bottom-2 right-2 w-10 h-10 bg-[#475569] rounded-full flex items-center justify-center cursor-pointer shadow-[0_4px_6px_0_rgba(0,0,0,0.10),0_10px_15px_0_rgba(0,0,0,0.10)]">

@@ -20,6 +20,22 @@ const generateToken = (id) => {
   });
 };
 
+const ensureProfileCompleteness = async (user) => {
+  // Check if all required fields are present
+  const isComplete = Boolean(
+    user.firstName?.trim() &&
+    user.lastName?.trim() &&
+    user.bio?.trim() &&
+    user.avatar_url?.trim() &&
+    (user.googleId ? user.password?.trim() : true)
+  );
+
+  if (user.isProfileComplete !== isComplete) {
+    user.isProfileComplete = isComplete;
+    await user.save();
+  }
+};
+
 // ================= REGISTER =================
 router.post("/register", validate(registerSchema), async (req, res) => {
   const { name, email, password } = req.body;
@@ -45,6 +61,10 @@ router.post("/register", validate(registerSchema), async (req, res) => {
       email: user.email,
       role: user.role,
       bio: user.bio,
+      avatar_url: user.avatar_url,
+      isProfileComplete: user.isProfileComplete,
+      isGoogleUser: !!user.googleId,
+      hasPassword: !!user.password,
       purchasedCourses: user.purchasedCourses,
       token: generateToken(user.id),
     });
@@ -73,6 +93,10 @@ router.post("/login", validate(loginSchema), async (req, res) => {
 
     if (user && user.password && isMatch) {
       console.log("Login successful!");
+      
+      // ✅ Run completeness check on every login
+      await ensureProfileCompleteness(user);
+
       res.json({
         id: user.id,
         firstName: user.firstName,
@@ -81,6 +105,11 @@ router.post("/login", validate(loginSchema), async (req, res) => {
         email: user.email,
         role: user.role,
         bio: user.bio,
+        avatar_url: user.avatar_url,
+        isProfileComplete: user.isProfileComplete,
+        isGoogleUser: !!user.googleId,
+        googleId: user.googleId,
+        hasPassword: !!user.password,
         purchasedCourses: user.purchasedCourses,
         token: generateToken(user.id),
       });
@@ -119,20 +148,75 @@ router.post("/google-login", validate(googleLoginSchema), async (req, res) => {
 
     const uid = payload.sub;
     const email = payload.email;
-    const name = payload.name || email.split("@")[0];
+    const googleFirstName = payload.given_name || payload.givenName || "";
+    const googleLastName = payload.family_name || payload.familyName || "";
+
+    // Fallback: If both are missing but full name exists, split it
+    let finalFirstName = googleFirstName;
+    let finalLastName = googleLastName;
+    
+    if (!finalFirstName && !finalLastName && payload.name) {
+      const parts = payload.name.trim().split(/\s+/);
+      if (parts.length > 0) {
+        finalFirstName = parts[0];
+        if (parts.length > 1) {
+          finalLastName = parts.slice(1).join(" ");
+        }
+      }
+    }
+
+    const googleAvatar = payload.picture || null;
+    const name = payload.name || `${finalFirstName} ${finalLastName}`.trim() || email.split("@")[0];
 
     let user = await User.findOne({ where: { email } });
+    let isNewUser = false;
 
     if (!user) {
+      // First-time Google login: Fetch and store all available details
+      isNewUser = true;
       user = await User.create({
         name,
+        firstName: finalFirstName,
+        lastName: finalLastName,
         email,
         googleId: uid,
+        avatar_url: googleAvatar, // Store Google photo as initial avatar
         role: "user",
       });
+    } else {
+      let updatedChanges = false;
+
+      // Link Google ID if missing
+      if (!user.googleId) {
+        user.googleId = uid;
+        updatedChanges = true;
+      }
+
+      // Requirement: If First Name, Last Name, or Avatar is missing -> fetch directly from Google.
+      if (!user.firstName && finalFirstName) {
+        user.firstName = finalFirstName;
+        updatedChanges = true;
+      }
+      if (!user.lastName && finalLastName) {
+        user.lastName = finalLastName;
+        updatedChanges = true;
+      }
+      if (!user.avatar_url && googleAvatar) {
+        user.avatar_url = googleAvatar;
+        updatedChanges = true;
+      }
+
+      if (updatedChanges) {
+        // Update name if we updated first/last names
+        user.name = `${user.firstName || ""} ${user.lastName || ""}`.trim() || user.name;
+        await user.save();
+      }
     }
 
     const token = generateToken(user.id);
+
+    // ✅ Run completeness check on every login
+    await ensureProfileCompleteness(user);
 
     res.json({
       id: user.id,
@@ -142,6 +226,12 @@ router.post("/google-login", validate(googleLoginSchema), async (req, res) => {
       email: user.email,
       role: user.role,
       bio: user.bio,
+      avatar_url: user.avatar_url,
+      isProfileComplete: user.isProfileComplete,
+      isGoogleUser: !!user.googleId,
+      googleId: user.googleId,
+      hasPassword: !!user.password,
+      isNewUser, // Dynamic flag for first-time login
       purchasedCourses: user.purchasedCourses,
       token,
     });

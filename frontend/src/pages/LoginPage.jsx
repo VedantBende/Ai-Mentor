@@ -50,7 +50,12 @@ const LoginPage = () => {
       if (response.data.token) {
         login(response.data);
         toast.success("Logged in successfully!");
-        navigate('/dashboard');
+        // Redirect to onboarding if profile is incomplete, otherwise dashboard
+        if (!response.data.isProfileComplete) {
+          navigate('/complete-profile');
+        } else {
+          navigate('/dashboard');
+        }
       }
     } catch (err) {
       toast.error(err.response?.data?.message || "Invalid Credentials!");

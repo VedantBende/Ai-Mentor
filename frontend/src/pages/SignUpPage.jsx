@@ -94,7 +94,8 @@ const SignUpPage = () => {
 
       login(data, false);
       toast.success("Account created successfully!");
-      navigate("/dashboard");
+      // Redirect to onboarding for bio + avatar (profile not yet complete)
+      navigate("/complete-profile");
     } catch (error) {
       toast.error(error.message);
     } finally {

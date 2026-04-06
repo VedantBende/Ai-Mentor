@@ -113,20 +113,42 @@ User.init(
       type: DataTypes.DATE,
       allowNull: true,
     },
+
+    // Tracks whether the user has completed first-time onboarding
+    // (bio, avatar, and for Google users: name + password)
+    isProfileComplete: {
+      type: DataTypes.BOOLEAN,
+      defaultValue: false,
+    },
   },
   {
     sequelize,
     modelName: "User",
     timestamps: true,
     hooks: {
-  beforeSave: async (user) => {
-    // hash password only if it was changed
-    if (user.password && user.changed("password")) {
-      const salt = await bcrypt.genSalt(10);
-      user.password = await bcrypt.hash(user.password, salt);
-    }
-  },
-},
+      beforeSave: async (user) => {
+        // hash password only if it was changed
+        if (user.password && user.changed("password")) {
+          const salt = await bcrypt.genSalt(10);
+          user.password = await bcrypt.hash(user.password, salt);
+        }
+
+        // Dynamically calculate isProfileComplete on EVERY save for ALL users
+        const hasBio = user.bio && user.bio.trim().length > 0;
+        const hasAvatar = user.avatar_url && user.avatar_url.trim().length > 0;
+        const hasFirstName = user.firstName && user.firstName.trim().length > 0;
+        const hasLastName = user.lastName && user.lastName.trim().length > 0;
+        const hasPassword = user.password && user.password.trim().length > 0;
+        
+        // Google users MUST have a password to be "complete".
+        // Email users are "complete" if Bio, Avatar, and Names are present.
+        if (user.googleId) {
+          user.isProfileComplete = Boolean(hasBio && hasAvatar && hasFirstName && hasLastName && hasPassword);
+        } else {
+          user.isProfileComplete = Boolean(hasBio && hasAvatar && hasFirstName && hasLastName);
+        }
+      },
+    },
   }
 );
 

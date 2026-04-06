@@ -4,7 +4,7 @@ export const updateProfileSchema = z.object({
   firstName: z.string().min(1, "First name is required").optional(),
   lastName: z.string().min(1, "Last name is required").optional(),
   email: z.string().email("Invalid email format").optional(),
-  bio: z.string().max(500, "Bio must be at most 500 characters").optional(),
+  bio: z.string().min(1, "Bio is required").max(500, "Bio must be at most 500 characters").optional(),
 });
 
 export const changePasswordSchema = z.object({

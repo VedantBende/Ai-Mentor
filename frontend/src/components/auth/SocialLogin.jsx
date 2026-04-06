@@ -1,4 +1,5 @@
 import React from "react";
+import { useNavigate } from "react-router-dom";
 import logoGoogle from "../../assets/images/google.jpg";
 import { auth, googleProvider, signInWithPopup } from "../../firebase"; // Adjust path if needed
 import { useAuth } from "../../context/AuthContext";
@@ -6,6 +7,7 @@ import toast from "react-hot-toast";
 
 const SocialLogin = () => {
   const { login } = useAuth();
+  const navigate = useNavigate();
 
   const handleGoogleLogin = async () => {
     try {
@@ -31,7 +33,13 @@ const SocialLogin = () => {
       // Use existing AuthContext login
       toast.success("Logged in successfully!");
       setTimeout(() => {
-        login(data, true);
+        login({ ...data, isGoogleUser: true });
+        // Redirect to onboarding if profile is incomplete
+        if (!data.isProfileComplete) {
+          navigate('/complete-profile');
+        } else {
+          navigate('/dashboard');
+        }
       }, 1000);
     } catch (err) {
       toast.error(err.message || "Google sign-in error");

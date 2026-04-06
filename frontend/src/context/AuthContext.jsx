@@ -61,7 +61,11 @@ export const AuthProvider = ({ children }) => {
         const newUser = {
           ...userData,
           token: localStorage.getItem("token"),
-          avatar_url: userData.avatar_url || null, // Ensure it exists
+          avatar_url: userData.avatar_url || null,
+          isProfileComplete: userData.isProfileComplete ?? false,
+          isGoogleUser: userData.isGoogleUser ?? false,
+          googleId: userData.googleId ?? null,
+          hasPassword: userData.hasPassword ?? false,
         };
 
         setUser(newUser);

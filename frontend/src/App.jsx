@@ -16,18 +16,23 @@ import LearningPage from "./pages/LearningPage";
 import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
 import CertificatesPage from "./pages/CertificatesPage";
+import CompleteProfilePage from "./pages/CompleteProfilePage";
 import "./App.css";
 import Success from "./pages/Success";
 // Redirects from the root path based on authentication status.
 const RootRedirect = () => {
-  const { isAuthenticated } = useAuth();
-  return <Navigate to={isAuthenticated ? "/dashboard" : "/login"} replace />;
+  const { isAuthenticated, user } = useAuth();
+  if (!isAuthenticated) return <Navigate to="/login" replace />;
+  // Redirect to onboarding if profile is incomplete
+  return <Navigate to={user?.isProfileComplete ? "/dashboard" : "/complete-profile"} replace />;
 };
 
 // Prevents authenticated users from accessing public-only pages like login/signup.
 const PublicRoutes = () => {
-  const { isAuthenticated } = useAuth();
-  return isAuthenticated ? <Navigate to="/dashboard" replace /> : <Outlet />;
+  const { isAuthenticated, user } = useAuth();
+  if (!isAuthenticated) return <Outlet />;
+  // Redirect to onboarding if profile is incomplete
+  return <Navigate to={user?.isProfileComplete ? "/dashboard" : "/complete-profile"} replace />;
 };
 
 const App = () => {
@@ -44,8 +49,12 @@ const App = () => {
         <Route path="/reset-password/:token" element={<ResetPassword />} />
       </Route>
 
-      {/* Protected Routes with shared Header + Sidebar layout */}
+      {/* Protected Routes */}
       <Route element={<ProtectedRoute />}>
+        {/* Onboarding — no sidebar/header */}
+        <Route path="/complete-profile" element={<CompleteProfilePage />} />
+
+        {/* Dashboard layout with sidebar + header */}
         <Route element={<DashboardLayout />}>
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/analytics" element={<Analytics />} />

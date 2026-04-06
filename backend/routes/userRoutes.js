@@ -26,7 +26,8 @@ import {
   updateUserSettings,
   removePurchasedCourse,
   deleteAccount,
-  changePassword
+  changePassword,
+  completeProfile,
 } from "../controllers/userController.js";
 
 const router = express.Router();
@@ -47,6 +48,10 @@ const upload = multer({ storage });
 
 router.post("/register", validate(registerSchema), registerUser);
 router.post("/login", validate(loginSchema), loginUser);
+
+/* ---------- FIRST-TIME ONBOARDING ---------- */
+// Accepts avatar via multipart form data, requires JWT auth
+router.post("/complete-profile", protect, upload.single("avatar"), completeProfile);
 
 /* ---------- USER ROUTES ---------- */
 

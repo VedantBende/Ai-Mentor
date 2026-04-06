@@ -44,12 +44,29 @@ const registerUser = async (req, res) => {
       email: user.email,
       role: user.role,
       bio: user.bio,
+      avatar_url: user.avatar_url,
+      isProfileComplete: user.isProfileComplete,
       purchasedCourses: user.purchasedCourses,
       token: generateToken(user.id),
     });
   } catch (error) {
     console.error("REGISTER ERROR:", error.message);
     res.status(500).json({ message: "Server error" });
+  }
+};
+
+const ensureProfileCompleteness = async (user) => {
+  const isComplete = Boolean(
+    user.firstName?.trim() &&
+    user.lastName?.trim() &&
+    user.bio?.trim() &&
+    user.avatar_url?.trim() &&
+    (user.googleId ? user.password?.trim() : true)
+  );
+
+  if (user.isProfileComplete !== isComplete) {
+    user.isProfileComplete = isComplete;
+    await user.save();
   }
 };
 
@@ -64,6 +81,9 @@ const loginUser = async (req, res) => {
       return res.status(401).json({ message: "Invalid credentials" });
     }
 
+    // ✅ Run completeness check on every login
+    await ensureProfileCompleteness(user);
+
     res.json({
       id: user.id,
       firstName: user.firstName,
@@ -72,7 +92,11 @@ const loginUser = async (req, res) => {
       email: user.email,
       role: user.role,
       bio: user.bio,
-      avatar_url: user.avatar_url, // 🔥 ADD THIS
+      avatar_url: user.avatar_url,
+      isProfileComplete: user.isProfileComplete,
+      isGoogleUser: !!user.googleId,
+      googleId: user.googleId,
+      hasPassword: !!user.password,
       purchasedCourses: user.purchasedCourses,
       token: generateToken(user.id),
     });
@@ -142,7 +166,11 @@ const getUserProfile = async (req, res) => {
       email: user.email,
       role: user.role,
       bio: user.bio,
-      avatar_url: user.avatar_url,  // 👈 ADD THIS LINE
+      avatar_url: user.avatar_url,
+      isProfileComplete: user.isProfileComplete,
+      isGoogleUser: !!user.googleId,
+      googleId: user.googleId,
+      hasPassword: !!user.password,
       purchasedCourses: user.purchasedCourses,
     });
   } catch (error) {
@@ -415,7 +443,10 @@ const updateUserProfile = async (req, res) => {
       email: user.email,
       role: user.role,
       bio: user.bio,
-      avatar_url: user.avatar_url,  // 👈 added
+      avatar_url: user.avatar_url,
+      isProfileComplete: user.isProfileComplete,
+      isGoogleUser: !!user.googleId,
+      hasPassword: !!user.password,
       purchasedCourses: user.purchasedCourses,
     });
 
@@ -494,6 +525,107 @@ const removePurchasedCourse = async (req, res) => {
     res.status(500).json({message: "Failed to delete account"}); 
   } 
 }
+// Complete first-time user profile onboarding
+// Google users: firstName, lastName, password (required), bio, avatar
+// Email users: bio, avatar
+const completeProfile = async (req, res) => {
+  try {
+    const user = await User.findByPk(req.user.id);
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    // Prevent re-completion for already completed profiles
+    if (user.isProfileComplete) {
+      // Return gracefully instead of erroring, letting the frontend handle redirection
+      return res.json({
+        id: user.id,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        bio: user.bio,
+        avatar_url: user.avatar_url,
+        isProfileComplete: user.isProfileComplete,
+        purchasedCourses: user.purchasedCourses,
+        token: req.token // If needed, though usually not required here as frontend retains its own JWT
+      });
+    }
+
+    const { firstName, lastName, password, bio } = req.body;
+
+    // Apply missing fields if provided
+    if (firstName && firstName.trim() !== '') {
+      user.firstName = firstName;
+    }
+    if (lastName && lastName.trim() !== '') {
+      user.lastName = lastName;
+    }
+    if (user.firstName || user.lastName) {
+      user.name = `${user.firstName || ''} ${user.lastName || ''}`.trim();
+    }
+    if (password && password.length >= 6 && !!user.googleId) {
+      user.password = password; // strictly handled by beforeSave hook!
+    }
+
+    // All users: bio (required if not already set)
+    if (bio && bio.trim().length > 0) {
+      user.bio = bio;
+    } else if (!user.bio || user.bio.trim().length === 0) {
+      return res.status(400).json({ message: "Bio is required" });
+    }
+
+    // Avatar upload via Cloudinary (required if not already set)
+    if (req.file) {
+      const result = await cloudinary.uploader.upload(req.file.path, {
+        folder: "user_avatars",
+        public_id: `user_${user.id}`,
+        overwrite: true,
+      });
+      user.avatar_url = result.secure_url;
+      fs.unlinkSync(req.file.path);
+    } else if (!user.avatar_url) {
+      return res.status(400).json({ message: "Profile photo is required" });
+    }
+
+    user.isProfileComplete = true; // Temporary flag to trigger save check
+    await user.save();
+
+    // Final safety check: if the hook found it's STILL incomplete, return a list of missing fields.
+    if (!user.isProfileComplete) {
+      const missingFields = [];
+      if (!user.firstName) missingFields.push("First Name");
+      if (!user.lastName) missingFields.push("Last Name");
+      if (!user.bio) missingFields.push("Bio");
+      if (!user.avatar_url) missingFields.push("Profile Photo");
+      if (user.googleId && !user.password) missingFields.push("Password");
+
+      return res.status(400).json({ 
+        message: `Profile is still incomplete. Missing: ${missingFields.join(", ")}`,
+        missingFields 
+      });
+    }
+
+    res.json({
+      id: user.id,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      bio: user.bio,
+      avatar_url: user.avatar_url,
+      isProfileComplete: user.isProfileComplete,
+      isGoogleUser: !!user.googleId,
+      googleId: user.googleId,
+      hasPassword: !!user.password,
+      purchasedCourses: user.purchasedCourses,
+    });
+  } catch (error) {
+    console.error("COMPLETE PROFILE ERROR:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
 // EXPORTS
 export {
   registerUser,
@@ -507,5 +639,6 @@ export {
   updateUserProfile, // stub
   removePurchasedCourse,
   deleteAccount,
-  changePassword
+  changePassword,
+  completeProfile,
 };
