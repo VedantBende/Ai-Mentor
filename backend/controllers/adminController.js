@@ -1,5 +1,7 @@
 import Admin from "../models/Admin.js";
 import jwt from "jsonwebtoken";
+import User from "../models/User.js";
+import Course from "../models/Course.js";
 
 const generateToken = (id) => {
   return jwt.sign({ id }, process.env.JWT_SECRET, {
@@ -94,7 +96,7 @@ const deleteAdmin = async (req, res) => {
 
     // prevent superAdmin from deleting themselves
     if (adminToDelete.id === req.admin.id) {
-        return res.status(400).json({ message: "You cannot delete yourself" });
+      return res.status(400).json({ message: "You cannot delete yourself" });
     }
 
     await adminToDelete.destroy();
@@ -112,4 +114,326 @@ const logoutAdmin = async (req, res) => {
   res.json({ message: "Logged out successfully. Please remove your token on the client side." });
 };
 
-export { registerAdmin, loginAdmin, getAdminProfile, deleteAdmin, logoutAdmin };
+//
+const getAllEnrollments = async (req, res) => {
+  try {
+    const { type = "stats" } = req.query;
+
+    // 👉 Fetch required data
+    const users = await User.findAll({
+      attributes: ["id", "purchasedCourses", "email", "name"],
+    });
+
+    const courses = await Course.findAll({
+      attributes: ["id", "priceValue", "title"],
+    });
+
+    // 👉 Create course price map
+    const coursePriceMap = {};
+    courses.forEach(course => {
+      coursePriceMap[course.id] = course.priceValue || 0;
+    });
+
+    //stats start
+    if (type === "stats") {
+      let totalEnrollments = 0;
+      let totalRevenue = 0;
+      let activeUsersSet = new Set();
+
+      const now = new Date();
+      const activeThresholdDays = 7;
+
+      users.forEach(user => {
+        const purchased = user.purchasedCourses || [];
+
+        if (purchased.length > 0) {
+          purchased.forEach(course => {
+            totalEnrollments++;
+
+            // 💰 Revenue
+            totalRevenue += coursePriceMap[course.courseId] || 0;
+
+            // ⚡ Active Users (lastWatched within 7 days)
+            if (course.progress?.lastWatched) {
+              const lastWatched = new Date(course.progress.lastWatched);
+              const diffDays =
+                (now - lastWatched) / (1000 * 60 * 60 * 24);
+
+              if (diffDays <= activeThresholdDays) {
+                activeUsersSet.add(user.id);
+              }
+            }
+          });
+        }
+      });
+
+      return res.status(200).json({
+        success: true,
+        data: {
+          totalEnrollments,
+          totalUsers: users.length,
+          activeUsers: activeUsersSet.size,
+          totalRevenue,
+        },
+      });
+    }
+    //stats ends
+
+    //list
+    if (type === "list") {
+      const page = parseInt(req.query.page) || 1;
+      const limit = Math.min(parseInt(req.query.limit) || 10, 50);
+
+      let enrollments = [];
+
+      users.forEach(user => {
+        const purchased = user.purchasedCourses || [];
+
+        purchased.forEach(course => {
+          enrollments.push({
+            userName: user.name,
+            email: user.email,
+            courseTitle: course.courseTitle,
+            purchaseDate: course.purchaseDate,
+            amount: coursePriceMap[course.courseId] || 0,
+          });
+        });
+      });
+
+      // 👉 Sort by latest purchase
+      enrollments.sort(
+        (a, b) => new Date(b.purchaseDate) - new Date(a.purchaseDate)
+      );
+
+      const total = enrollments.length;
+
+      const start = (page - 1) * limit;
+      const paginatedData = enrollments.slice(start, start + limit);
+
+      return res.status(200).json({
+        success: true,
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+        data: paginatedData,
+      });
+    }
+    //list ends
+
+    //recent starts
+    if (type === "recent") {
+      const limit = Math.min(parseInt(req.query.limit) || 10, 20);
+
+      let enrollments = [];
+
+      users.forEach(user => {
+        const purchased = user.purchasedCourses || [];
+
+        purchased.forEach(course => {
+          enrollments.push({
+            userName: user.name,
+            email: user.email,
+            courseTitle: course.courseTitle,
+            purchaseDate: course.purchaseDate,
+            amount: coursePriceMap[course.courseId] || 0,
+          });
+        });
+      });
+
+      // 🔥 Sort latest first
+      enrollments.sort(
+        (a, b) => new Date(b.purchaseDate) - new Date(a.purchaseDate)
+      );
+
+      return res.status(200).json({
+        success: true,
+        count: Math.min(limit, enrollments.length),
+        data: enrollments.slice(0, limit),
+      });
+    }
+    //recent ends 
+
+    //top courses start
+    if (type === "top-courses") {
+      const limit = Math.min(parseInt(req.query.limit) || 5, 10);
+
+      const courseCountMap = {};
+
+      // Step 1 & 2: Count frequency
+      users.forEach(user => {
+        const purchased = user.purchasedCourses || [];
+
+        purchased.forEach(course => {
+          if (!courseCountMap[course.courseId]) {
+            courseCountMap[course.courseId] = 0;
+          }
+          courseCountMap[course.courseId]++;
+        });
+      });
+
+      // Step 3: Convert to array
+      let result = Object.keys(courseCountMap).map(courseId => ({
+        courseId: Number(courseId),
+        totalPurchases: courseCountMap[courseId],
+      }));
+
+      // Step 4: Add course title
+      result = result.map(item => ({
+        ...item,
+        courseTitle: courses.find(c => c.id === item.courseId)?.title || "Unknown",
+      }));
+
+      // Step 5: Sort
+      result.sort((a, b) => b.totalPurchases - a.totalPurchases);
+
+      return res.status(200).json({
+        success: true,
+        count: Math.min(limit, result.length),
+        data: result.slice(0, limit),
+      });
+    }
+    //top courses ends
+
+    //user id starts
+    if (type === "user") {
+      const { userId } = req.query;
+
+      if (!userId) {
+        return res.status(400).json({
+          success: false,
+          message: "userId is required",
+        });
+      }
+
+      const user = await User.findByPk(userId);
+
+      if (!user) {
+        return res.status(404).json({
+          success: false,
+          message: "User not found",
+        });
+      }
+
+      const purchased = user.purchasedCourses || [];
+
+      let totalSpent = 0;
+
+      const enrollments = purchased.map(course => {
+        const amount = coursePriceMap[course.courseId] || 0;
+        totalSpent += amount;
+
+        return {
+          courseId: course.courseId,
+          courseTitle: course.courseTitle,
+          purchaseDate: course.purchaseDate,
+          amount,
+          progressPercent: course.progress?.progressPercent || 0,
+          lastWatched: course.progress?.lastWatched || null,
+        };
+      });
+
+      return res.status(200).json({
+        success: true,
+        data: {
+          user: {
+            id: user.id,
+            name: user.name,
+            email: user.email,
+          },
+          totalCoursesPurchased: enrollments.length,
+          totalSpent,
+          enrollments,
+        },
+      });
+    }
+    //user id ends
+
+    //course starts
+    if (type === "course") {
+      const { courseId } = req.query;
+
+      if (!courseId) {
+        return res.status(400).json({
+          success: false,
+          message: "courseId is required",
+        });
+      }
+
+      const course = courses.find(c => c.id == courseId);
+
+      if (!course) {
+        return res.status(404).json({
+          success: false,
+          message: "Course not found",
+        });
+      }
+
+      let totalEnrollments = 0;
+      let activeUsersSet = new Set();
+
+      const now = new Date();
+      const activeThresholdDays = 7;
+
+      let usersList = [];
+
+      users.forEach(user => {
+        const purchased = user.purchasedCourses || [];
+
+        purchased.forEach(c => {
+          if (c.courseId == courseId) {
+            totalEnrollments++;
+
+            usersList.push({
+              userName: user.name,
+              email: user.email,
+              purchaseDate: c.purchaseDate,
+              progressPercent: c.progress?.progressPercent || 0,
+            });
+
+            if (c.progress?.lastWatched) {
+              const lastWatched = new Date(c.progress.lastWatched);
+              const diffDays =
+                (now - lastWatched) / (1000 * 60 * 60 * 24);
+
+              if (diffDays <= activeThresholdDays) {
+                activeUsersSet.add(user.id);
+              }
+            }
+          }
+        });
+      });
+
+      return res.status(200).json({
+        success: true,
+        data: {
+          course: {
+            id: course.id,
+            title: course.title,
+            price: course.priceValue,
+          },
+          totalEnrollments,
+          activeUsers: activeUsersSet.size,
+          users: usersList,
+        },
+      });
+    }
+    //course ends
+
+    // fallback
+    res.status(400).json({
+      success: false,
+      message: "Invalid type parameter",
+    });
+
+  } catch (error) {
+    console.error("ENROLLMENTS ERROR:", error.message);
+    res.status(500).json({
+      success: false,
+      message: "Server Error",
+    });
+  }
+};
+
+
+export { registerAdmin, loginAdmin, getAdminProfile, deleteAdmin, logoutAdmin, getAllEnrollments };

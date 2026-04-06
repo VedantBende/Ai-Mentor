@@ -11,7 +11,7 @@ function UsersPage() {
         </div>
       </div>
       <div className="overflow-x-auto">
-        <table className="w-full min-w-225">
+        <table className="w-full min-w-[225px]">
           <thead className="text-left text-xs uppercase tracking-wider" style={{ color: "rgba(51,51,51,0.6)" }}>
             <tr className="border-b" style={{ borderColor: "var(--neutral-100)" }}>
               <th className="p-5">User</th>
