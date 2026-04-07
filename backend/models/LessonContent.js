@@ -2,8 +2,13 @@ import { DataTypes } from "sequelize";
 import { sequelize } from "../config/db.js";
 
 const LessonContent = sequelize.define("LessonContent", {
+    id: {   // ✅ OPTIONAL BUT BEST PRACTICE
+        type: DataTypes.INTEGER,
+        autoIncrement: true,
+        primaryKey: true,
+    },
     lessonId: {
-        type: DataTypes.STRING,
+        type: DataTypes.INTEGER,   // ✅ FIXED
         allowNull: false,
     },
 

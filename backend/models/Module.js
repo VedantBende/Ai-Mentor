@@ -3,7 +3,8 @@ import { sequelize } from "../config/db.js";
 
 const Module = sequelize.define("Module", {
     id: {
-        type: DataTypes.STRING,
+        type: DataTypes.INTEGER,
+        autoIncrement: true,
         primaryKey: true,
     },
     courseId: {
@@ -12,8 +13,6 @@ const Module = sequelize.define("Module", {
     },
 
     title: DataTypes.STRING,
-
     order: DataTypes.INTEGER
 });
-
 export default Module;

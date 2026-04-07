@@ -203,8 +203,8 @@ const getCourseLearningData = async (req, res) => {
 ===================================== */
 const getCourseAndLessonTitles = async (courseId, lessonId) => {
   try {
-    const course = await Course.findByPk(String(courseId));
-    const lesson = await Lesson.findByPk(String(lessonId));
+    const course = await Course.findByPk((courseId));
+    const lesson = await Lesson.findByPk((lessonId));
 
     if (!course || !lesson) return null;
 

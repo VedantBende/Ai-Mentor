@@ -313,6 +313,8 @@ const DiscussionsPage = () => {
     if (!res.ok) throw new Error();
     return res.json();
   };
+  const wrapperRef = useRef(null);
+  /* ───────── effects ───────── */
 
   // Report a post or reply
   const handleReport = async () => {
@@ -672,7 +674,20 @@ const DiscussionsPage = () => {
   useEffect(() => {
     if (selectedCourse) fetchPanelPosts(selectedCourse.courseId, panelSort);
   }, [selectedCourse, panelSort, fetchPanelPosts]);
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (wrapperRef.current && !wrapperRef.current.contains(e.target)) {
+        setShowGuidelines(false);
+      }
+    };
 
+    document.addEventListener("mousedown", handleClickOutside);
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
+  /* ───────── handlers ───────── */
   useEffect(() => {
     fetchReports();
   }, [fetchReports]);
@@ -1521,7 +1536,7 @@ const DiscussionsPage = () => {
                     {/* Close Button */}
                     <button
                       onClick={() => setShowWelcome(false)}
-                      className="absolute top-3 right-3 text-orange-300 hover:text-white transition-colors"
+                      className="absolute top-3 right-3 text-white hover:text-orange-300 transition-colors"
                     >
                       <X className="w-4 h-4" />
                     </button>
@@ -1541,22 +1556,16 @@ const DiscussionsPage = () => {
                           anything globally.
                         </p>
 
-                        <div className="relative group inline-block">
+                        <div ref={wrapperRef} className="relative inline-block">
                           <button
-                            onClick={() => setShowGuidelines(!showGuidelines)}
+                            onClick={() => setShowGuidelines((prev) => !prev)}
                             className="mt-2 text-blue-400 hover:text-blue-300 text-sm flex items-center gap-1"
                           >
                             <ArrowRight className="w-3 h-3 transition-transform group-hover:translate-x-1" />
                             Community Guidelines
                           </button>
 
-                          <div
-                            className={`
-              absolute left-0 top-full mt-2 md:w-96 w-60 bg-[#1E1E24] border border-orange-500/30 rounded-lg p-3
-              text-xs text-gray-300 shadow-lg z-50 transition-all duration-200
-              ${showGuidelines ? "opacity-100 visible" : "opacity-0 invisible"}
-            `}
-                          >
+                          <div className={`absolute left-0 top-full mt-2 md:w-96 w-60 bg-[#1E1E24] border border-orange-500/30 rounded-lg p-3 text-xs text-gray-300 shadow-lg z-50 transition-all duration-200 ${showGuidelines ? "opacity-100 visible" : "opacity-0 invisible"}`}>
                             <ul className="space-y-1">
                               <li>
                                 - Be respectful and courteous to all members.

@@ -4,8 +4,8 @@ import { sequelize } from "../config/db.js";
 const Course = sequelize.define("Course", {
   id: {
     type: DataTypes.INTEGER,
+    autoIncrement: true,   // ✅ ADD THIS
     primaryKey: true,
-    allowNull: false,
   },
 
   title: DataTypes.STRING,
