@@ -547,7 +547,6 @@ const completeProfile = async (req, res) => {
         avatar_url: user.avatar_url,
         isProfileComplete: user.isProfileComplete,
         purchasedCourses: user.purchasedCourses,
-        token: req.token // If needed, though usually not required here as frontend retains its own JWT
       });
     }
 
