@@ -435,5 +435,163 @@ const getAllEnrollments = async (req, res) => {
   }
 };
 
+const getAllPayments = async (req, res) => {
+  try {
+    const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
+    const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 10, 1), 100);
+    const search = String(req.query.search || "").trim().toLowerCase();
 
-export { registerAdmin, loginAdmin, getAdminProfile, deleteAdmin, logoutAdmin, getAllEnrollments };
+    const users = await User.findAll({
+      attributes: ["id", "name", "email", "purchasedCourses"],
+    });
+
+    const courses = await Course.findAll({
+      attributes: ["id", "title", "priceValue", "currency"],
+    });
+
+    const courseMap = {};
+    courses.forEach((course) => {
+      courseMap[String(course.id)] = {
+        title: course.title,
+        priceValue: Number(course.priceValue || 0),
+        currency: course.currency || "INR",
+      };
+    });
+
+    let payments = [];
+
+    users.forEach((user) => {
+      const purchased = Array.isArray(user.purchasedCourses)
+        ? user.purchasedCourses
+        : [];
+
+      purchased.forEach((item, index) => {
+        if (!item || typeof item !== "object") {
+          return;
+        }
+
+        const parsedCourseId = Number(item.courseId);
+        if (!Number.isFinite(parsedCourseId)) {
+          return;
+        }
+
+        const courseId = parsedCourseId;
+        const courseInfo = courseMap[String(courseId)] || {};
+        const rawAmount = item.amount ?? courseInfo.priceValue ?? 0;
+        const parsedAmount = Number(rawAmount);
+        const amount = Number.isFinite(parsedAmount) ? parsedAmount : 0;
+        const purchaseDate = item.purchaseDate || null;
+
+        payments.push({
+          paymentId: `${user.id}-${courseId}-${purchaseDate || index}`,
+          userId: user.id,
+          userName: user.name,
+          email: user.email,
+          courseId,
+          courseTitle:
+            item.courseTitle || courseInfo.title || `Course ${item.courseId}`,
+          amount,
+          currency: item.currency || courseInfo.currency || "INR",
+          status: item.paymentStatus || "paid",
+          paymentMethod: item.paymentMethod || null,
+          transactionId: item.transactionId || item.orderId || null,
+          purchaseDate,
+        });
+      });
+    });
+
+    if (search) {
+      payments = payments.filter((payment) => {
+        const text = [
+          payment.userName,
+          payment.email,
+          payment.courseTitle,
+          payment.transactionId,
+        ]
+          .filter(Boolean)
+          .join(" ")
+          .toLowerCase();
+
+        return text.includes(search);
+      });
+    }
+
+    payments.sort(
+      (a, b) => new Date(b.purchaseDate || 0) - new Date(a.purchaseDate || 0)
+    );
+
+    const total = payments.length;
+    const totalAmount = payments.reduce(
+      (sum, payment) => sum + Number(payment.amount || 0),
+      0
+    );
+
+    const start = (page - 1) * limit;
+    const data = payments.slice(start, start + limit);
+
+    return res.status(200).json({
+      success: true,
+      page,
+      limit,
+      total,
+      totalPages: Math.ceil(total / limit),
+      summary: {
+        totalPayments: total,
+        totalAmount,
+      },
+      data,
+    });
+  } catch (error) {
+    console.error("GET PAYMENTS ERROR:", error.message);
+    res.status(500).json({
+      success: false,
+      message: "Server Error",
+    });
+  }
+};
+
+const getAllCourses = async (req, res) => {
+  try {
+    const courses = await Course.findAll();
+    res.status(200).json({
+      success: true,
+      data: courses,
+    });
+  } catch (error) { 
+    console.error("GET COURSES ERROR:", error.message);
+    res.status(500).json({
+      success: false,
+      message: "Server Error",
+    });
+  }
+}
+
+const getAllUsers = async (req, res) => {
+  try {
+    const users = await User.findAll({
+      attributes: ["id", "name", "email", "purchasedCourses", "createdAt"],
+    });
+    res.status(200).json({ 
+      success: true,
+      data: users,
+    });
+  } catch (error) {
+    console.error("GET USERS ERROR:", error.message);
+    res.status(500).json({
+      success: false,
+      message: "Server Error",
+    });
+  }
+}
+
+export {
+  registerAdmin,
+  loginAdmin,
+  getAdminProfile,
+  deleteAdmin,
+  logoutAdmin,
+  getAllEnrollments,
+  getAllPayments,
+  getAllCourses,
+  getAllUsers,
+};
