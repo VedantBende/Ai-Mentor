@@ -105,6 +105,16 @@ button{
   scrollbar-width: none;
 }
 
+/* Hide scrollbar utility (used by mobile settings tab bar) */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
 /* Responsive adjustments */
 @media (max-width: 1024px) {
   .w-70 {
