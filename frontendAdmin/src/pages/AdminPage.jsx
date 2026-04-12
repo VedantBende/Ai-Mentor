@@ -14,6 +14,7 @@ const NAV = [
 ];
 
 const NEW_COURSE = { title: "", category: "", level: "Beginner", priceValue: "", image: "" };
+const formatCurrency = (amount) => `INR ${Number(amount || 0).toLocaleString("en-IN")}`;
 
 const Metric = ({ label, value }) => (
   <article className="rounded-xl border border-border bg-card p-4">
@@ -64,6 +65,10 @@ export default function AdminPage() {
   const [courses, setCourses] = useState([]);
   const [users, setUsers] = useState([]);
   const [reports, setReports] = useState([]);
+  const [enrollmentStats, setEnrollmentStats] = useState(null);
+  const [enrollmentList, setEnrollmentList] = useState([]);
+  const [recentPayments, setRecentPayments] = useState([]);
+  const [topCourses, setTopCourses] = useState([]);
   const [learning, setLearning] = useState({});
 
   const [courseForm, setCourseForm] = useState(NEW_COURSE);
@@ -94,14 +99,22 @@ export default function AdminPage() {
   const fetchAll = async () => {
     setBusy(true); setError("");
     try {
-      const [c, u, r] = await Promise.all([
+      const [c, u, r, stats, list, recent, top] = await Promise.all([
         callApi("/courses"),
         callApi("/admin/users"),
         callApi("/community/reports"),
+        callApi("/admin/enrollments?type=stats"),
+        callApi("/admin/enrollments?type=list&limit=50"),
+        callApi("/admin/enrollments?type=recent&limit=20"),
+        callApi("/admin/enrollments?type=top-courses&limit=5"),
       ]);
       setCourses(c || []);
       setUsers(u || []);
       setReports(r || []);
+      setEnrollmentStats(stats?.data || null);
+      setEnrollmentList(list?.data || []);
+      setRecentPayments(recent?.data || []);
+      setTopCourses(top?.data || []);
     } catch (e) {
       setError(e.message);
     } finally {
@@ -135,24 +148,13 @@ export default function AdminPage() {
   if (!token) return <GateCard title="Admin login required" body="Please login first." />;
   if (user?.role !== "admin" && user?.role !== "superAdmin") return <GateCard title="Access denied" body="Admin role is required for this panel." />;
 
-  const enrollmentRows = users.flatMap((u) => (u.purchasedCourses || []).map((p) => {
-    const course = courses.find((c) => Number(c.id) === Number(p.courseId));
-    return {
-      id: `${u.id}-${p.courseId}-${p.purchaseDate || ""}`,
-      user: u.name,
-      email: u.email,
-      course: p.courseTitle || course?.title || `Course ${p.courseId}`,
-      amount: Number(course?.priceValue || 0),
-      date: p.purchaseDate,
-    };
-  }));
-
   const summary = {
     courses: courses.length,
     users: users.length,
-    enrollments: enrollmentRows.length,
+    enrollments: enrollmentStats?.totalEnrollments ?? enrollmentList.length,
     reports: reports.length,
-    revenue: enrollmentRows.reduce((a, b) => a + b.amount, 0),
+    revenue: enrollmentStats?.totalRevenue ?? 0,
+    activeUsers: enrollmentStats?.activeUsers ?? 0,
   };
 
   const navTo = (id) => { navigate(`/${id}`); setMobileNav(false); };
@@ -315,7 +317,7 @@ export default function AdminPage() {
               <Metric label="Courses" value={summary.courses} />
               <Metric label="Users" value={summary.users} />
               <Metric label="Enrollments" value={summary.enrollments} />
-              <Metric label="Revenue" value={summary.revenue} />
+              <Metric label="Revenue" value={formatCurrency(summary.revenue)} />
               <Metric label="Reports" value={summary.reports} />
             </div>
           )}
@@ -359,10 +361,12 @@ export default function AdminPage() {
           {page === "enrollments" && (
             <DataTable
               headers={["User", "Course", "Amount", "Date"]}
-              rows={enrollmentRows.map((r) => (
-                <tr key={r.id} className="border-t border-border">
-                  <td className="px-3 py-2"><div>{r.user}</div><div className="text-xs text-muted">{r.email}</div></td>
-                  <td className="px-3 py-2">{r.course}</td><td className="px-3 py-2">{r.amount}</td><td className="px-3 py-2">{r.date ? new Date(r.date).toLocaleDateString() : "-"}</td>
+              rows={enrollmentList.map((r) => (
+                <tr key={`${r.email}-${r.courseTitle}-${r.purchaseDate}`} className="border-t border-border">
+                  <td className="px-3 py-2"><div>{r.userName}</div><div className="text-xs text-muted">{r.email}</div></td>
+                  <td className="px-3 py-2">{r.courseTitle}</td>
+                  <td className="px-3 py-2">{formatCurrency(r.amount)}</td>
+                  <td className="px-3 py-2">{r.purchaseDate ? new Date(r.purchaseDate).toLocaleDateString() : "-"}</td>
                 </tr>
               ))}
               empty="No enrollments"
@@ -370,15 +374,36 @@ export default function AdminPage() {
           )}
 
           {page === "payments" && (
-            <DataTable
-              headers={["User", "Course", "Amount", "Date"]}
-              rows={enrollmentRows.map((r) => (
-                <tr key={`${r.id}-p`} className="border-t border-border">
-                  <td className="px-3 py-2">{r.user}</td><td className="px-3 py-2">{r.course}</td><td className="px-3 py-2">+ {r.amount}</td><td className="px-3 py-2">{r.date ? new Date(r.date).toLocaleDateString() : "-"}</td>
-                </tr>
-              ))}
-              empty="No payments"
-            />
+            <div className="space-y-4">
+              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                <Metric label="Total Revenue" value={formatCurrency(summary.revenue)} />
+                <Metric label="Total Enrollments" value={summary.enrollments} />
+                <Metric label="Active Users (7d)" value={summary.activeUsers} />
+                <Metric label="Top Courses" value={topCourses.length} />
+              </div>
+              <DataTable
+                headers={["User", "Course", "Amount", "Date"]}
+                rows={recentPayments.map((r, idx) => (
+                  <tr key={`${r.email}-${r.courseTitle}-${r.purchaseDate}-${idx}`} className="border-t border-border">
+                    <td className="px-3 py-2">{r.userName}</td>
+                    <td className="px-3 py-2">{r.courseTitle}</td>
+                    <td className="px-3 py-2 text-emerald-700">+ {formatCurrency(r.amount)}</td>
+                    <td className="px-3 py-2">{r.purchaseDate ? new Date(r.purchaseDate).toLocaleDateString() : "-"}</td>
+                  </tr>
+                ))}
+                empty="No recent payments"
+              />
+              <DataTable
+                headers={["Course", "Purchases"]}
+                rows={topCourses.map((item) => (
+                  <tr key={item.courseId} className="border-t border-border">
+                    <td className="px-3 py-2">{item.courseTitle}</td>
+                    <td className="px-3 py-2">{item.totalPurchases}</td>
+                  </tr>
+                ))}
+                empty="No top course data"
+              />
+            </div>
           )}
 
           {page === "reports" && (

@@ -22,7 +22,7 @@ router.post("/register", protectAdmin, superAdminOnly, registerAdmin);
 router.get("/profile", protectAdmin, getAdminProfile);
 router.post("/logout", protectAdmin, logoutAdmin);
 router.delete("/:id", protectAdmin, superAdminOnly, deleteAdmin);
-router.get("/enrollments", protectAdmin, getAllEnrollments);
+router.get("/enrollments", protect, admin, getAllEnrollments);
 
 // User admin management via user-role based auth (shared with course/community admin APIs)
 router.get("/users", protect, admin, listUsersForAdmin);
