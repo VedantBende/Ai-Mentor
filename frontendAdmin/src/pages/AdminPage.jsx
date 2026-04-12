@@ -15,6 +15,7 @@ const NAV = [
 
 const NEW_COURSE = { title: "", category: "", level: "Beginner", priceValue: "", image: "" };
 const formatCurrency = (amount) => `INR ${Number(amount || 0).toLocaleString("en-IN")}`;
+const REPORT_PAGE_LIMIT = 10;
 
 const Metric = ({ label, value }) => (
   <article className="rounded-xl border border-border bg-card p-4">
@@ -65,6 +66,15 @@ export default function AdminPage() {
   const [courses, setCourses] = useState([]);
   const [users, setUsers] = useState([]);
   const [reports, setReports] = useState([]);
+  const [reportPage, setReportPage] = useState(1);
+  const [reportMeta, setReportMeta] = useState({ page: 1, totalPages: 1, total: 0, limit: REPORT_PAGE_LIMIT });
+  const [reportLoading, setReportLoading] = useState(false);
+  const [reportFilters, setReportFilters] = useState({
+    status: "pending",
+    reason: "all",
+    contentType: "all",
+    search: "",
+  });
   const [enrollmentStats, setEnrollmentStats] = useState(null);
   const [enrollmentList, setEnrollmentList] = useState([]);
   const [recentPayments, setRecentPayments] = useState([]);
@@ -96,13 +106,41 @@ export default function AdminPage() {
 
   const notify = (msg) => { setToast(msg); setTimeout(() => setToast(""), 2200); };
 
+  const fetchReports = async (page = 1, customFilters = reportFilters) => {
+    setReportLoading(true);
+    try {
+      const params = new URLSearchParams({
+        page: String(page),
+        limit: String(REPORT_PAGE_LIMIT),
+        status: customFilters.status,
+        reason: customFilters.reason,
+        contentType: customFilters.contentType,
+      });
+
+      if (customFilters.search.trim()) {
+        params.set("search", customFilters.search.trim());
+      }
+
+      const response = await callApi(`/community/reports?${params.toString()}`);
+      setReports(response?.data || []);
+      setReportMeta(response?.meta || { page: 1, totalPages: 1, total: 0, limit: REPORT_PAGE_LIMIT });
+      return response;
+    } catch (e) {
+      setError(e.message);
+      setReports([]);
+      setReportMeta({ page: 1, totalPages: 1, total: 0, limit: REPORT_PAGE_LIMIT });
+      return null;
+    } finally {
+      setReportLoading(false);
+    }
+  };
+
   const fetchAll = async () => {
     setBusy(true); setError("");
     try {
-      const [c, u, r, stats, list, recent, top] = await Promise.all([
+      const [c, u, stats, list, recent, top] = await Promise.all([
         callApi("/courses"),
         callApi("/admin/users"),
-        callApi("/community/reports"),
         callApi("/admin/enrollments?type=stats"),
         callApi("/admin/enrollments?type=list&limit=50"),
         callApi("/admin/enrollments?type=recent&limit=20"),
@@ -110,7 +148,6 @@ export default function AdminPage() {
       ]);
       setCourses(c || []);
       setUsers(u || []);
-      setReports(r || []);
       setEnrollmentStats(stats?.data || null);
       setEnrollmentList(list?.data || []);
       setRecentPayments(recent?.data || []);
@@ -127,6 +164,12 @@ export default function AdminPage() {
       fetchAll();
     }
   }, []);
+
+  useEffect(() => {
+    if (token && (user?.role === "admin" || user?.role === "superAdmin")) {
+      fetchReports(reportPage, reportFilters);
+    }
+  }, [reportPage, reportFilters.status, reportFilters.reason, reportFilters.contentType, reportFilters.search]);
 
   useEffect(() => {
     if (!manageCourse) return;
@@ -152,7 +195,7 @@ export default function AdminPage() {
     courses: courses.length,
     users: users.length,
     enrollments: enrollmentStats?.totalEnrollments ?? enrollmentList.length,
-    reports: reports.length,
+    reports: reportMeta.total,
     revenue: enrollmentStats?.totalRevenue ?? 0,
     activeUsers: enrollmentStats?.activeUsers ?? 0,
   };
@@ -209,8 +252,19 @@ export default function AdminPage() {
   };
 
   const reportAction = async (id, action) => {
-    try { setBusy(true); await callApi(`/community/reports/${id}`, { method: "PUT", body: JSON.stringify({ action }) }); notify(`Report ${action}`); await fetchAll(); }
-    catch (e) { setError(e.message); } finally { setBusy(false); }
+    try {
+      setBusy(true);
+      await callApi(`/community/reports/${id}`, { method: "PUT", body: JSON.stringify({ action }) });
+      notify(`Report ${action}`);
+      const response = await fetchReports(reportPage, reportFilters);
+      if (response?.meta && response.meta.page > response.meta.totalPages && response.meta.totalPages > 0) {
+        setReportPage(response.meta.totalPages);
+      }
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setBusy(false);
+    }
   };
 
   const activeLearning = manageCourse ? learning[manageCourse.id] : null;
@@ -407,23 +461,111 @@ export default function AdminPage() {
           )}
 
           {page === "reports" && (
-            <div className="space-y-3">
+            <div className="space-y-4">
+              <div className="grid gap-2 rounded-xl border border-border bg-card p-3 md:grid-cols-5">
+                <select
+                  className="rounded border border-border bg-input px-2 py-2 text-sm"
+                  value={reportFilters.status}
+                  onChange={(e) => {
+                    setReportPage(1);
+                    setReportFilters((prev) => ({ ...prev, status: e.target.value }));
+                  }}
+                >
+                  <option value="pending">Pending</option>
+                  <option value="resolved">Resolved</option>
+                  <option value="all">All Status</option>
+                </select>
+                <select
+                  className="rounded border border-border bg-input px-2 py-2 text-sm"
+                  value={reportFilters.reason}
+                  onChange={(e) => {
+                    setReportPage(1);
+                    setReportFilters((prev) => ({ ...prev, reason: e.target.value }));
+                  }}
+                >
+                  <option value="all">All Reasons</option>
+                  <option value="spam">Spam</option>
+                  <option value="harassment">Harassment</option>
+                  <option value="inappropriate">Inappropriate</option>
+                  <option value="misinformation">Misinformation</option>
+                  <option value="other">Other</option>
+                </select>
+                <select
+                  className="rounded border border-border bg-input px-2 py-2 text-sm"
+                  value={reportFilters.contentType}
+                  onChange={(e) => {
+                    setReportPage(1);
+                    setReportFilters((prev) => ({ ...prev, contentType: e.target.value }));
+                  }}
+                >
+                  <option value="all">All Content</option>
+                  <option value="post">Posts</option>
+                  <option value="reply">Replies</option>
+                </select>
+                <input
+                  className="rounded border border-border bg-input px-2 py-2 text-sm md:col-span-2"
+                  placeholder="Search reason/description..."
+                  value={reportFilters.search}
+                  onChange={(e) => {
+                    setReportPage(1);
+                    setReportFilters((prev) => ({ ...prev, search: e.target.value }));
+                  }}
+                />
+              </div>
+
+              {reportLoading && <p className="text-xs text-muted">Loading reports...</p>}
+
               {reports.map((r) => {
                 const reply = r.replyId ? (r.post?.replies || []).find((x) => String(x.id) === String(r.replyId)) : null;
+                const isResolved = r.status === "resolved";
                 return (
                   <article key={r.id} className="rounded-xl border border-border bg-card p-4">
-                    <p className="text-sm font-semibold">{r.replyId ? "Reported reply" : "Reported post"}</p>
-                    <p className="text-xs text-muted">Reporter: {r.reporter?.name} ({r.reporter?.email}) | Reason: {r.reason}</p>
-                    <p className="mt-2 rounded bg-canvas-alt p-2 text-sm">{reply?.text || r.post?.content || "-"}</p>
-                    <div className="mt-3 flex gap-2">
-                      <button className="rounded border border-amber-300 px-2 py-1 text-xs text-amber-700" onClick={() => reportAction(r.id, "hidden")}>Hide</button>
-                      <button className="rounded border border-red-300 px-2 py-1 text-xs text-red-700" onClick={() => reportAction(r.id, "deleted")}>Delete</button>
-                      <button className="rounded border border-border px-2 py-1 text-xs" onClick={() => reportAction(r.id, "dismissed")}>Dismiss</button>
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <p className="text-sm font-semibold">{r.replyId ? "Reported reply" : "Reported post"}</p>
+                      <div className="flex items-center gap-2 text-xs">
+                        <span className={`rounded-full px-2 py-1 ${isResolved ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"}`}>
+                          {r.status}
+                        </span>
+                        {r.action && <span className="rounded-full bg-slate-100 px-2 py-1 text-slate-700">Action: {r.action}</span>}
+                      </div>
                     </div>
+                    <p className="mt-1 text-xs text-muted">Reporter: {r.reporter?.name} ({r.reporter?.email}) | Reason: {r.reason}</p>
+                    {r.description && <p className="mt-1 text-xs text-muted">Description: {r.description}</p>}
+                    <p className="mt-2 rounded bg-canvas-alt p-2 text-sm">{reply?.text || r.post?.content || "Content unavailable"}</p>
+                    {!isResolved && (
+                      <div className="mt-3 flex gap-2">
+                        <button className="rounded border border-amber-300 px-2 py-1 text-xs text-amber-700" onClick={() => reportAction(r.id, "hidden")}>Hide</button>
+                        <button className="rounded border border-red-300 px-2 py-1 text-xs text-red-700" onClick={() => reportAction(r.id, "deleted")}>Delete</button>
+                        <button className="rounded border border-border px-2 py-1 text-xs" onClick={() => reportAction(r.id, "dismissed")}>Dismiss</button>
+                      </div>
+                    )}
                   </article>
                 );
               })}
-              {!reports.length && <p className="rounded-xl border border-border bg-card p-4 text-sm text-muted">No pending reports.</p>}
+
+              {!reports.length && !reportLoading && (
+                <p className="rounded-xl border border-border bg-card p-4 text-sm text-muted">No reports found for current filters.</p>
+              )}
+
+              <div className="flex items-center justify-between rounded-xl border border-border bg-card p-3 text-sm">
+                <p className="text-muted">Page {reportMeta.page} of {reportMeta.totalPages} | Total {reportMeta.total}</p>
+                <div className="flex gap-2">
+                  <button
+                    className="rounded border border-border px-3 py-1 disabled:cursor-not-allowed disabled:opacity-50"
+                    onClick={() => setReportPage((p) => Math.max(1, p - 1))}
+                    disabled={reportMeta.page <= 1 || reportLoading}
+                  >
+                    Prev
+                  </button>
+                  <button
+                    className="rounded border border-border px-3 py-1 disabled:cursor-not-allowed disabled:opacity-50"
+                    onClick={() => setReportPage((p) => Math.min(reportMeta.totalPages, p + 1))}
+                    disabled={reportMeta.page >= reportMeta.totalPages || reportLoading}
+                  >
+                    Next
+                  </button>
+                </div>
+              </div>
             </div>
           )}
         </section>

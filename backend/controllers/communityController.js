@@ -2,6 +2,7 @@ import CommunityPost from "../models/CommunityPost.js";
 import User from "../models/User.js";
 import Report from "../models/Report.js";
 import crypto from "crypto";
+import { Op } from "sequelize";
 import { createNotification } from "./notificationController.js";
 
 // @desc    Get course community stats (list of courses with post counts)
@@ -473,25 +474,69 @@ const reportContent = async (req, res) => {
 // @desc    Get all pending reports (admin only)
 // @route   GET /api/community/reports
 // @access  Private/Admin
-const getReports = async (_req, res) => {
+const getReports = async (req, res) => {
   try {
+    const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
+    const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 10, 1), 100);
+    const offset = (page - 1) * limit;
+
+    const statusFilter = req.query.status || "pending";
+    const reasonFilter = req.query.reason || "all";
+    const contentType = req.query.contentType || "all"; // post | reply | all
+    const search = (req.query.search || "").trim();
+
+    const where = {};
+
+    if (statusFilter !== "all") {
+      where.status = statusFilter;
+    }
+
+    if (reasonFilter !== "all") {
+      where.reason = reasonFilter;
+    }
+
+    if (contentType === "reply") {
+      where.replyId = { [Op.ne]: null };
+    } else if (contentType === "post") {
+      where.replyId = null;
+    }
+
+    if (search) {
+      where[Op.or] = [
+        { description: { [Op.iLike]: `%${search}%` } },
+      ];
+    }
+
     const reports = await Report.findAll({
-      where: { status: "pending" },
+      where,
       include: [
         { model: User, as: "reporter", attributes: ["id", "name", "email"] },
         {
           model: CommunityPost,
           as: "post",
           attributes: ["id", "content", "replies", "userId"],
+          required: false,
           include: [
             { model: User, as: "author", attributes: ["id", "name"] },
           ],
         },
       ],
       order: [["createdAt", "DESC"]],
+      limit,
+      offset,
     });
 
-    res.json(reports);
+    const total = await Report.count({ where });
+
+    res.json({
+      data: reports,
+      meta: {
+        total,
+        page,
+        limit,
+        totalPages: Math.max(Math.ceil(total / limit), 1),
+      },
+    });
   } catch (error) {
     console.error("GET REPORTS ERROR:", error);
     res.status(500).json({ message: "Server error" });
