@@ -504,6 +504,7 @@ const getReports = async (req, res) => {
     if (search) {
       where[Op.or] = [
         { description: { [Op.iLike]: `%${search}%` } },
+        { reason: { [Op.iLike]: `%${search}%` } },
       ];
     }
 
