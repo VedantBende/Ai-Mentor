@@ -563,10 +563,9 @@ const updateUserRoleByAdmin = async (req, res) => {
       return res.status(400).json({ message: "Invalid role value" });
     }
 
-    if (!["admin", "superAdmin"].includes(requesterRole)) {
-      return res.status(403).json({ message: "Not authorized to update user roles" });
+    if (role === "superAdmin" && req.user?.role !== "superAdmin") {
+      return res.status(403).json({ message: "Only super admins can assign the superAdmin role" });
     }
-
     const targetUser = await User.findByPk(id);
     if (!targetUser) {
       return res.status(404).json({ message: "User not found" });
@@ -603,8 +602,8 @@ const deleteUserByAdmin = async (req, res) => {
   try {
     const { id } = req.params;
 
-    if (req.user?.id === id) {
-      return res.status(400).json({ message: "You cannot delete your own account from admin panel" });
+    if (req.user?.id != null && String(req.user.id) === String(id)) {
+      return res.status(403).json({ message: "You cannot delete your own account from admin panel" });
     }
 
     await User.sequelize.transaction(async (transaction) => {
