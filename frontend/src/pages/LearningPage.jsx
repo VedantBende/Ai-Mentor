@@ -683,6 +683,13 @@ export default function Learning() {
     setIsNavigating(false);
   };
 
+  const handleFinish = async () => {
+    setIsNavigating(true);
+    // mark the final lesson as completed to hit 100% progress
+    if (currentLesson?.id) await completeLesson(currentLesson.id);
+    setIsNavigating(false);
+  };
+
   const togglePlay = () => {
     if (videoRef.current) {
       if (!selectedCelebrity && !isPlaying) {
@@ -1203,16 +1210,38 @@ export default function Learning() {
                   <ChevronLeft className="w-5 h-5" />
                   {t("learning.previous")}
                 </button>
-                <button
-                  onClick={handleNext}
-                  disabled={
-                    currentLessonIndex >= allLessons.length - 1 || isNavigating
+                {(() => {
+                  const courseProgress = user?.purchasedCourses?.find(
+                    (c) => c.courseId === parseInt(courseId)
+                  )?.progress;
+                  const isCompleted = courseProgress?.completedLessons?.some(
+                    (cl) => String(cl.lessonId || cl) === String(currentLesson?.id)
+                  );
+
+                  if (currentLessonIndex >= allLessons.length - 1) {
+                    return (
+                      <button
+                        onClick={handleFinish}
+                        disabled={isNavigating || isCompleted}
+                        className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-blue-600 transition-all hover:shadow-md disabled:hover:shadow-none"
+                      >
+                        {isNavigating ? t("learning.loading") : isCompleted ? t("learning.finished", "Finished") : t("learning.finish", "Finish")}
+                        <Check className="w-5 h-5" />
+                      </button>
+                    );
                   }
-                  className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-blue-600 transition-all hover:shadow-md disabled:hover:shadow-none"
-                >
-                  {isNavigating ? t("learning.loading") : t("learning.next")}
-                  <ChevronRight className="w-5 h-5" />
-                </button>
+
+                  return (
+                    <button
+                      onClick={handleNext}
+                      disabled={isNavigating}
+                      className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-blue-600 transition-all hover:shadow-md disabled:hover:shadow-none"
+                    >
+                      {isNavigating ? t("learning.loading") : t("learning.next")}
+                      <ChevronRight className="w-5 h-5" />
+                    </button>
+                  );
+                })()}
               </div>
 
               {/* Lesson Content */}

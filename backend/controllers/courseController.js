@@ -20,23 +20,35 @@ const parseLessonsCount = (lessons) => {
   }
 };
 
-const formatCourse = (course) => ({
-  id: course.id,
-  title: course.title,
-  category: course.category,
-  categoryColor: course.categoryColor,
-  level: course.level,
-  lessons: course.lessons,
-  lessonsCount: course.lessonsCount ?? parseLessonsCount(course.lessons),
-  price: course.price,
-  priceValue: course.priceValue,
-  currency: course.currency,
-  rating: course.rating,
-  students: course.students,
-  studentsCount: course.studentsCount,
-  image: course.image,
-  isBookmarked: course.isBookmarked,
-});
+const formatCourse = async (course) => {
+  let lessonsCount = course.lessonsCount || parseLessonsCount(course.lessons) || 0;
+  
+  if (lessonsCount <= 0) {
+    try {
+      lessonsCount = (await Lesson.count({ where: { courseId: course.id } })) || 0;
+    } catch (e) {
+      console.error(`Failed to count lessons for course ${course.id}:`, e);
+    }
+  }
+
+  return {
+    id: course.id,
+    title: course.title,
+    category: course.category,
+    categoryColor: course.categoryColor,
+    level: course.level,
+    lessons: course.lessons,
+    lessonsCount: lessonsCount || 0,
+    price: course.price,
+    priceValue: course.priceValue,
+    currency: course.currency,
+    rating: course.rating,
+    students: course.students,
+    studentsCount: course.studentsCount,
+    image: course.image,
+    isBookmarked: course.isBookmarked,
+  };
+};
 
 /* =========================
    GET ALL COURSES (DB)
@@ -47,7 +59,8 @@ const getCourses = async (req, res) => {
       order: [["createdAt", "ASC"]],
     });
 
-    res.json(courses.map(formatCourse));
+    const formattedCourses = await Promise.all(courses.map(formatCourse));
+    res.json(formattedCourses);
   } catch (error) {
     console.error("GET COURSES ERROR:", error);
     res.status(500).json({ message: "Failed to load courses" });
@@ -67,7 +80,7 @@ const getCourseById = async (req, res) => {
       return res.status(404).json({ message: "Course not found" });
     }
 
-    res.json(formatCourse(course));
+    res.json(await formatCourse(course));
   } catch (error) {
     console.error("GET COURSE BY ID ERROR:", error);
     res.status(500).json({ message: "Server error" });
@@ -97,17 +110,18 @@ const getMyCourses = async (req, res) => {
       order: [["createdAt", "ASC"]],
     });
 
-    res.json(
-      myCourses.map((course) => ({
+    const formattedCourses = await Promise.all(
+      myCourses.map(async (course) => ({
         id: course.id,
         title: course.title,
         category: course.category,
         level: course.level,
         lessons: course.lessons,
-        lessonsCount: course.lessonsCount ?? parseLessonsCount(course.lessons),
+        lessonsCount: course.lessonsCount || parseLessonsCount(course.lessons) || (await Lesson.count({ where: { courseId: course.id } })) || 0,
         image: course.image,
       }))
     );
+    res.json(formattedCourses);
   } catch (error) {
     console.error("MY COURSES ERROR:", error);
     res.json([]);

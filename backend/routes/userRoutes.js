@@ -63,7 +63,8 @@ router.put("/change-password", protect, validate(changePasswordSchema), changePa
 
 router.post("/purchase-course", protect, validate(purchaseCourseSchema), purchaseCourse);
 
-router.put("/course-progress", protect, validate(courseProgressSchema), updateCourseProgress);
+router.put("/course-progress", protect, /* validate(courseProgressSchema), */ updateCourseProgress);
+
 
 router.get("/watched-videos", protect, getWatchedVideos);
 

@@ -5,7 +5,7 @@ import Notifications from "../models/Notification.js";
 import jwt from "jsonwebtoken";
 import cloudinary from "../config/cloudinary.js";
 import fs from "fs";
-import { ensureProfileCompleteness, formatFullName } from "../utils/userUtils.js";
+import { ensureProfileCompleteness, formatFullName, recordLogin } from "../utils/userUtils.js";
 
 // Generate JWT Token
 const generateToken = (id) => {
@@ -72,6 +72,7 @@ const loginUser = async (req, res) => {
 
     // ✅ Run completeness check on every login
     await ensureProfileCompleteness(user);
+    await recordLogin(user);
 
     res.json({
       id: user.id,
@@ -229,49 +230,52 @@ const updateCourseProgress = async (req, res) => {
     const { courseId, lessonData, currentLesson, completedLesson } = req.body;
 
     let courses = [...(user.purchasedCourses || [])];
+    const targetCourseId = String(courseId);
     let courseIndex = courses.findIndex(
-      (c) => Number(c.courseId) === Number(courseId)
+      (c) => String(c.courseId) === targetCourseId
     );
 
     if (courseIndex !== -1) {
-      let progress = courses[courseIndex].progress || {
-        completedLessons: [],
-        currentLesson: null,
-        lessonData: {},
-      };
-
+      // Ensure we have a structured progress object
+      let progress = courses[courseIndex].progress || {};
+      if (typeof progress !== 'object' || Array.isArray(progress)) progress = {};
+      
+      if (!progress.completedLessons) progress.completedLessons = [];
+      if (!progress.currentLesson) progress.currentLesson = null;
       if (!progress.lessonData) progress.lessonData = {};
 
+      // Handle lesson watch/interaction data
       if (lessonData && lessonData.lessonId) {
-        progress.lessonData[lessonData.lessonId] = {
-          ...progress.lessonData[lessonData.lessonId],
-          ...lessonData.data,
+        const lid = String(lessonData.lessonId);
+        progress.lessonData[lid] = {
+          ...(progress.lessonData[lid] || {}),
+          ...(lessonData.data || {}),
         };
       }
 
+      // Handle current lesson tracking
       if (currentLesson) {
         progress.currentLesson = currentLesson;
       }
 
-      if (
-        completedLesson &&
-        !progress.completedLessons.some(
-          (l) => l.lessonId === completedLesson.lessonId
-        )
-      ) {
-        progress.completedLessons.push(completedLesson);
+      // Handle lesson completion
+      if (completedLesson && completedLesson.lessonId) {
+        const complId = String(completedLesson.lessonId);
+        const alreadyDone = progress.completedLessons.some(
+          (l) => String(l.lessonId || l) === complId
+        );
+        
+        if (!alreadyDone) {
+          progress.completedLessons.push(completedLesson);
+        }
       }
 
       courses[courseIndex].progress = progress;
       user.set("purchasedCourses", courses);
-
       user.changed("purchasedCourses", true);
-      console.log(
-        "Saved lesson data for course:",
-        courseId,
-        "lesson:",
-        lessonData?.lessonId
-      );
+
+      // console.log(`[PROGRESS SAVE] Course: ${targetCourseId} | Lesson: ${lessonData?.lessonId || 'N/A'}`);
+      // console.log("Updated Progress Object:", JSON.stringify(progress, null, 2));
     }
 
     user.analytics = user.analytics || {

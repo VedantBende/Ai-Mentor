@@ -3,7 +3,7 @@ import User from "../models/User.js";
 import jwt from "jsonwebtoken";
 import { Op } from "sequelize";
 import sendEmail from "../utils/sendEmail.js";
-import { ensureProfileCompleteness, formatFullName } from "../utils/userUtils.js";
+import { ensureProfileCompleteness, formatFullName, recordLogin } from "../utils/userUtils.js";
 import cloudinary from "../config/cloudinary.js";
 
 const generateToken = (id) => {
@@ -71,6 +71,7 @@ const login = async (req, res) => {
     if (user && user.password && isMatch) {
       console.log("Login successful!");
       await ensureProfileCompleteness(user);
+      await recordLogin(user);
       
       res.json({
         id: user.id,
@@ -201,6 +202,7 @@ const googleLogin = async (req, res) => {
     }
 
     await ensureProfileCompleteness(user);
+    await recordLogin(user);
 
     // 🔥 OPTIMIZATION: Flicker-Free Avatar Re-hosting
     if (avatar_url) {

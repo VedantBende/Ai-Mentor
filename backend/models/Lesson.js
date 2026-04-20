@@ -3,12 +3,11 @@ import { sequelize } from "../config/db.js";
 
 const Lesson = sequelize.define("Lesson", {
     id: {
-        type: DataTypes.INTEGER,
-        autoIncrement: true,
+        type: DataTypes.STRING,
         primaryKey: true,
     },
     moduleId: {
-        type: DataTypes.INTEGER,   // ✅ FIXED
+        type: DataTypes.STRING,
         allowNull: false,
     },
 

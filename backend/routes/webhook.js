@@ -30,6 +30,7 @@ router.post(
       const session = event.data.object;
 
       const courseId = session.metadata.courseId;
+      const courseTitle = session.metadata.courseTitle;
       const userId = session.metadata.userId;
 
       try {
@@ -51,6 +52,7 @@ router.post(
         if (!alreadyPurchased) {
           purchased.push({
             courseId: Number(courseId),
+            courseTitle: courseTitle || "Course",
             purchasedAt: new Date(),
             progress: {
               completedLessons: [],

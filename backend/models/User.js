@@ -78,10 +78,16 @@ User.init(
         totalCourses: 0,
         completedCourses: 0,
         certificates: 0,
+        calendarTasks: {},
       },
     },
 
     learningHoursChart: {
+      type: DataTypes.JSONB,
+      defaultValue: [],
+    },
+
+    loginHistory: {
       type: DataTypes.JSONB,
       defaultValue: [],
     },
