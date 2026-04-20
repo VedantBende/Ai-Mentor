@@ -18,8 +18,46 @@ const CoursesPage = () => {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
 
+  const [filters, setFilters] = useState({ category: [], level: [], price: [] });
+  const [showFilters, setShowFilters] = useState(false);
+
+  const toggleFilter = (field, value) => {
+    setFilters(prev => {
+      const current = prev[field];
+      if (current.includes(value)) {
+        return { ...prev, [field]: current.filter(item => item !== value) };
+      } else {
+        return { ...prev, [field]: [...current, value] };
+      }
+    });
+  };
+
+  const getActiveFilterCount = () => {
+    return filters.category.length + filters.level.length + filters.price.length;
+  };
+
   const [showEnrollPopup, setShowEnrollPopup] = useState(false);
   const [selectedCourse, setSelectedCourse] = useState(null);
+
+  const filterRef = useRef(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (filterRef.current && !filterRef.current.contains(event.target)) {
+        setShowFilters(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  // Extract unique filter options dynamically
+  const availableCategories = ["All", ...new Set(exploreCourses.map(c => c.category === "Databases" ? "Database" : c.category).filter(Boolean))];
+  const availableLevels = [...new Set(exploreCourses.map(c => c.level).filter(Boolean))];
+  const availablePrices = [...new Set(exploreCourses.map(c => {
+    const isFree = c.priceValue === 0 || c.price === "₹0" || c.price === "Free" || !c.price;
+    return isFree ? "Free" : "Paid";
+  }).filter(Boolean))];
 
   /* ================= FETCH COURSES ================= */
   useEffect(() => {
@@ -123,13 +161,44 @@ const CoursesPage = () => {
 
   const filteredExploreCourses = exploreCourses
     .filter((course) => !myCourses.some((c) => c.id === course.id))
-    .filter((course) => course.title.toLowerCase().includes(searchQuery.toLowerCase()));
+    .filter((course) => {
+      if (searchQuery.trim() !== "") {
+        return course.title.toLowerCase().includes(searchQuery.toLowerCase());
+      }
 
-  if(loading) return <div>Loading...</div>
+      const cat = course.category === "Databases" ? "Database" : course.category;
+      const matchesCategory = filters.category.length === 0 || filters.category.includes(cat);
+      const matchesLevel = filters.level.length === 0 || filters.level.includes(course.level);
+
+      const isFree = course.priceValue === 0 || course.price === "₹0" || course.price === "Free" || !course.price;
+      const type = isFree ? "Free" : "Paid";
+      const matchesPrice = filters.price.length === 0 || filters.price.includes(type);
+
+      return matchesCategory && matchesLevel && matchesPrice;
+    });
+
+  const filteredMyCourses = myCourses
+    .filter((course) => {
+      if (searchQuery.trim() !== "") {
+        return course.title.toLowerCase().includes(searchQuery.toLowerCase());
+      }
+
+      const cat = course.category === "Databases" ? "Database" : course.category;
+      const matchesCategory = filters.category.length === 0 || filters.category.includes(cat);
+      const matchesLevel = filters.level.length === 0 || filters.level.includes(course.level);
+
+      const isFree = course.priceValue === 0 || course.price === "₹0" || course.price === "Free" || !course.price;
+      const type = isFree ? "Free" : "Paid";
+      const matchesPrice = filters.price.length === 0 || filters.price.includes(type);
+
+      return matchesCategory && matchesLevel && matchesPrice;
+    });
+
+  if (loading) return <div>Loading...</div>
   return (
     <>
       {/* ══════ HERO ══════ */}
-      <div className="relative overflow-hidden bg-gradient-to-br from-teal-700 via-teal-600 to-teal-800 pt-16 pb-12 px-4 sm:px-8">
+      <div className="relative bg-gradient-to-br from-teal-700 via-teal-600 to-teal-800 pt-16 pb-12 px-4 sm:px-8">
         <div
           className="absolute inset-0 opacity-10"
           style={{
@@ -141,7 +210,7 @@ const CoursesPage = () => {
         <div className="relative z-10 max-w-5xl mx-auto space-y-6">
           <div className="flex items-center space-x-5">
             <img
-              src={user?.avatar_url || (user?.isGoogleUser || !!user?.googleId 
+              src={user?.avatar_url || (user?.isGoogleUser || !!user?.googleId
                 ? `https://api.dicebear.com/8.x/initials/svg?seed=${encodeURIComponent(user?.name || user?.email?.split('@')[0] || 'User')}`
                 : `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%2394a3b8'%3E%3Cpath d='M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z'/%3E%3C/svg%3E`
               )}
@@ -149,7 +218,7 @@ const CoursesPage = () => {
               className={`w-20 h-20 rounded-full border-3 border-white/80 object-cover shadow-lg ${!user?.avatar_url && !(user?.isGoogleUser || !!user?.googleId) ? 'p-3 bg-white/20' : ''}`}
               onError={(e) => {
                 const isGoogle = user?.isGoogleUser || !!user?.googleId;
-                const fallback = isGoogle 
+                const fallback = isGoogle
                   ? `https://api.dicebear.com/8.x/initials/svg?seed=${encodeURIComponent(user?.name || user?.email?.split('@')[0] || 'User')}`
                   : `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%2394a3b8'%3E%3Cpath d='M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z'/%3E%3C/svg%3E`;
                 e.target.src = fallback;
@@ -166,38 +235,197 @@ const CoursesPage = () => {
             </div>
           </div>
 
-          <div className="flex items-center justify-start gap-3">
-            <button
-              onClick={() => setActiveTab("my-courses")}
-              className={`flex items-center gap-2 px-6 py-2.5 rounded-full font-semibold text-sm transition-all ${
-                activeTab === "my-courses"
-                  ? "bg-indigo-600 text-white shadow-lg shadow-indigo-500/30"
-                  : "bg-black/30 text-white hover:bg-black/40"
-              }`}
-            >
-              <BookOpen className="w-4 h-4" />
-              Enrolled Courses
-            </button>
-            <button
-              onClick={() => setActiveTab("explore")}
-              className={`flex items-center gap-2 px-6 py-2.5 rounded-full font-semibold text-sm transition-all ${
-                activeTab === "explore"
-                  ? "bg-indigo-600 text-white shadow-lg shadow-indigo-500/30"
-                  : "bg-black/30 text-white hover:bg-black/40"
-              }`}
-            >
-              <Search className="w-4 h-4" />
-              {t("courses.explore")}
-            </button>
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 relative w-full z-40">
+            {/* Top Row / Left Section */}
+            <div className="flex items-center justify-between gap-2.5 w-full md:w-auto">
 
-            <div className="relative group max-w-xs w-60 hidden md:block">
+              {/* Scrollable Tabs */}
+              <div className="courses-tabs-scroll-container flex justify-between items-center gap-2 sm:gap-3 flex-nowrap overflow-x-auto pb-1 sm:pb-0 scroll-smooth flex-1" style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}>
+                <style>{`.courses-tabs-scroll-container::-webkit-scrollbar { display: none; }`}</style>
+                <button
+                  onClick={() => setActiveTab("my-courses")}
+                  className={`flex-1 basis-0 min-w-0 flex items-center justify-center gap-1.5 sm:gap-2 px-2 sm:px-6 py-2.5 rounded-full font-semibold text-xs sm:text-sm transition-all ${activeTab === "my-courses"
+                      ? "bg-indigo-600 text-white shadow-lg shadow-indigo-500/30"
+                      : "bg-black/30 text-white hover:bg-black/40"
+                    }`}
+                >
+                  <BookOpen className="w-4 h-4 shrink-0 hidden sm:block" />
+                  <span className="hidden sm:inline truncate">Enrolled Courses</span>
+                  <span className="sm:hidden truncate">Enrolled</span>
+                </button>
+                <button
+                  onClick={() => setActiveTab("explore")}
+                  className={`flex-1 basis-0 min-w-0 flex items-center justify-center gap-1.5 sm:gap-2 px-2 sm:px-6 py-2.5 rounded-full font-semibold text-xs sm:text-sm transition-all ${activeTab === "explore"
+                      ? "bg-indigo-600 text-white shadow-lg shadow-indigo-500/30"
+                      : "bg-black/30 text-white hover:bg-black/40"
+                    }`}
+                >
+                  <Search className="w-4 h-4 shrink-0 hidden sm:block" />
+                  <span className="hidden sm:inline truncate">{t("courses.explore")}</span>
+                  <span className="sm:hidden truncate">Explore</span>
+                </button>
+              </div>
+
+              {/* Action Icons (Filter) */}
+              <div className="flex items-center flex-shrink-0 relative">
+
+                {/* Filter Icon & Dropdown */}
+                <div ref={filterRef}>
+                  <button
+                    onClick={() => setShowFilters(!showFilters)}
+                    className={`relative flex items-center justify-center flex-shrink-0 w-10 h-10 sm:w-auto sm:px-5 sm:py-2.5 rounded-full border text-sm font-semibold transition-all duration-300 shadow-xl ${showFilters || getActiveFilterCount() > 0
+                        ? "bg-gradient-to-r from-teal-500/80 to-cyan-500/80 border-transparent text-white shadow-teal-500/20"
+                        : "bg-black/40 border-white/20 text-white hover:bg-black/60 hover:border-white/40 backdrop-blur-md"
+                      }`}
+                  >
+                    <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" /></svg>
+                    <span className="hidden sm:inline ml-2">{t("Filters", { defaultValue: "Filters" })}</span>
+                    {getActiveFilterCount() > 0 && (
+                      <span className="absolute -top-1.5 -right-1.5 sm:static sm:ml-1.5 bg-white text-teal-700 text-[11px] leading-none rounded-full w-5 h-5 flex items-center justify-center font-black shadow-md border-2 border-teal-700 z-10">
+                        {getActiveFilterCount()}
+                      </span>
+                    )}
+                  </button>
+
+                  {/* Filter Panel */}
+                  {showFilters && (
+                    <>
+                      {/* Dark overlay for mobile */}
+                      <div
+                        className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[90] md:hidden"
+                        onClick={() => setShowFilters(false)}
+                      />
+
+                      {/* Form panel */}
+                      <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[90vw] max-w-[26rem] md:absolute md:top-full md:left-auto md:right-0 md:translate-x-0 md:translate-y-0 md:mt-4 max-h-[85vh] overflow-y-auto bg-black/60 md:bg-black/40 backdrop-blur-3xl border border-teal-500/20 rounded-3xl shadow-[0_30px_60px_-15px_rgba(13,148,136,0.3)] p-6 z-[100] animate-in fade-in zoom-in-95 md:slide-in-from-top-6 duration-300">
+                        <div className="flex items-center justify-between mb-6">
+                          <div className="flex items-center gap-3">
+                            {getActiveFilterCount() > 0 && (
+                              <button
+                                onClick={() => setFilters({ category: [], level: [], price: [] })}
+                                className="text-[10px] font-black uppercase tracking-wider text-red-400 hover:text-red-300 transition-colors bg-red-400/10 hover:bg-red-400/20 px-3 py-1.5 rounded-full"
+                              >
+                                Clear All
+                              </button>
+                            )}
+                            <button
+                              onClick={() => setShowFilters(false)}
+                              className="md:hidden p-2 text-white bg-white/10 rounded-full hover:bg-white/20 transition-colors"
+                            >
+                              <X className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </div>
+
+                        <div className="space-y-6">
+                          {/* Categories */}
+                          <div>
+                            <label className="block text-[10px] font-black text-teal-200/70 uppercase tracking-widest mb-4">Category</label>
+                            <div className="flex flex-wrap gap-3">
+                              <button
+                                onClick={() => setFilters({ ...filters, category: [] })}
+                                className={`px-4 py-2 text-xs rounded-xl font-bold transition-all duration-300 ${filters.category.length === 0
+                                    ? "bg-gradient-to-r from-teal-500 to-cyan-500 text-white shadow-lg shadow-teal-500/25 scale-[1.03]"
+                                    : "bg-teal-900/30 text-teal-100 hover:bg-teal-500/20 border border-teal-500/30"
+                                  }`}
+                              >
+                                All Categories
+                              </button>
+                              {availableCategories.filter(cat => cat !== "All").map(cat => (
+                                <button
+                                  key={cat}
+                                  onClick={() => toggleFilter("category", cat)}
+                                  className={`px-4 py-2 text-xs rounded-xl font-bold transition-all duration-300 ${filters.category.includes(cat)
+                                      ? "bg-gradient-to-r from-teal-500 to-cyan-500 text-white shadow-lg shadow-teal-500/25 scale-[1.03]"
+                                      : "bg-teal-900/30 text-teal-100 hover:bg-teal-500/20 border border-teal-500/30"
+                                    }`}
+                                >
+                                  {cat}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+
+                          {/* Skill Level */}
+                          <div>
+                            <label className="block text-[10px] font-black text-teal-200/70 uppercase tracking-widest mb-4">Skill Level</label>
+                            <div className="flex flex-wrap gap-3">
+                              <button
+                                onClick={() => setFilters({ ...filters, level: [] })}
+                                className={`px-4 py-2 text-xs rounded-xl font-bold transition-all duration-300 ${filters.level.length === 0
+                                    ? "bg-gradient-to-r from-teal-500 to-cyan-500 text-white shadow-lg shadow-teal-500/25 scale-[1.03]"
+                                    : "bg-teal-900/30 text-teal-100 hover:bg-teal-500/20 border border-teal-500/30"
+                                  }`}
+                              >
+                                Any Level
+                              </button>
+                              {availableLevels.map(lvl => (
+                                <button
+                                  key={lvl}
+                                  onClick={() => toggleFilter("level", lvl)}
+                                  className={`px-4 py-2 text-xs rounded-xl font-bold transition-all duration-300 ${filters.level.includes(lvl)
+                                      ? "bg-gradient-to-r from-teal-500 to-cyan-500 text-white shadow-lg shadow-teal-500/25 scale-[1.03]"
+                                      : "bg-teal-900/30 text-teal-100 hover:bg-teal-500/20 border border-teal-500/30"
+                                    }`}
+                                >
+                                  {lvl}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+
+                          {/* Pricing */}
+                          <div>
+                            <label className="block text-[10px] font-black text-teal-200/70 uppercase tracking-widest mb-4">Pricing</label>
+                            <div className="flex gap-3">
+                              <button
+                                onClick={() => setFilters({ ...filters, price: [] })}
+                                className={`flex-1 py-2 text-xs rounded-xl font-bold transition-all duration-300 ${filters.price.length === 0
+                                    ? "bg-gradient-to-r from-teal-500 to-cyan-500 text-white shadow-lg shadow-teal-500/25 scale-[1.03]"
+                                    : "bg-teal-900/30 text-teal-100 hover:bg-teal-500/20 border border-teal-500/30"
+                                  }`}
+                              >
+                                Any Price
+                              </button>
+                              {availablePrices.map(p => (
+                                <button
+                                  key={p}
+                                  onClick={() => toggleFilter("price", p)}
+                                  className={`flex-1 py-2 text-xs rounded-xl font-bold transition-all duration-300 ${filters.price.includes(p)
+                                      ? "bg-gradient-to-r from-teal-500 to-cyan-500 text-white shadow-lg shadow-teal-500/25 scale-[1.03]"
+                                      : "bg-teal-900/30 text-teal-100 hover:bg-teal-500/20 border border-teal-500/30"
+                                    }`}
+                                >
+                                  {p}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Apply Filters Button (Mobile Friendly UX) */}
+                        <button
+                          onClick={() => setShowFilters(false)}
+                          className="w-full mt-6 py-3 px-4 bg-gradient-to-r from-teal-500 to-cyan-500 text-white rounded-xl font-bold text-sm tracking-wide shadow-lg shadow-teal-500/25 hover:scale-[1.02] transition-all"
+                        >
+                          Apply Filters
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Bottom Row / Search Container (Permanently shown on second row) */}
+            <div className="relative group w-full md:w-60 md:max-w-xs z-40 transition-all duration-300 block">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-white/50 group-focus-within:text-teal-300 transition-colors w-4 h-4" />
               <input
                 type="text"
                 placeholder={t("header.search_placeholder")}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-10 pr-4 py-2.5 bg-black/30 border border-white/20 rounded-full text-sm text-white placeholder-white/50 focus:ring-2 focus:ring-teal-400/30 focus:border-teal-400 transition-all outline-none"
+                className="w-full pl-10 pr-4 py-2.5 bg-black/30 border border-white/20 rounded-full text-sm text-white placeholder-white/50 focus:ring-2 focus:ring-teal-400/30 focus:border-teal-400 transition-all outline-none shadow-inner"
               />
             </div>
           </div>
@@ -215,43 +443,46 @@ const CoursesPage = () => {
                   {t("courses.not_enrolled")}
                 </p>
               )}
+              {myCourses.length > 0 && filteredMyCourses.length === 0 && (
+                <p className="text-slate-500 col-span-full">
+                  No enrolled courses match your current search or filters.
+                </p>
+              )}
 
-              {myCourses
-                .filter((course) => course.title.toLowerCase().includes(searchQuery.toLowerCase()))
-                .map((course) => {
-                  const purchasedEntry = user?.purchasedCourses?.find(
-                    (c) => Number(c.courseId) === Number(course.id)
-                  );
-                  const progress = purchasedEntry?.progress;
-                  const hasStarted =
-                    (progress?.completedLessons?.length > 0) ||
-                    (progress?.currentLesson != null);
+              {filteredMyCourses.map((course) => {
+                const purchasedEntry = user?.purchasedCourses?.find(
+                  (c) => Number(c.courseId) === Number(course.id)
+                );
+                const progress = purchasedEntry?.progress;
+                const hasStarted =
+                  (progress?.completedLessons?.length > 0) ||
+                  (progress?.currentLesson != null);
 
-                  return (
-                    <div
-                      key={course.id}
-                      className="bg-card rounded-3xl border border-border overflow-hidden shadow-sm"
-                    >
-                      <img
-                        src={course.image}
-                        alt={course.title}
-                        className="h-40 w-full object-cover"
-                      />
-                      <div className="p-6 space-y-4">
-                        <h3 className="text-lg font-semibold text-main">
-                          {course.title}
-                        </h3>
-                        <p className="text-sm text-slate-400">{course.lessons}</p>
-                        <button
-                          onClick={() => navigate(`/learning/${course.id}`)}
-                          className="w-full py-3 rounded-xl bg-[#2DD4BF] text-white font-semibold"
-                        >
-                          {hasStarted ? t("common.continue_learning") : t("common.start_learning")}
-                        </button>
-                      </div>
+                return (
+                  <div
+                    key={course.id}
+                    className="bg-card rounded-3xl border border-border overflow-hidden shadow-sm"
+                  >
+                    <img
+                      src={course.image}
+                      alt={course.title}
+                      className="h-40 w-full object-cover"
+                    />
+                    <div className="p-6 space-y-4">
+                      <h3 className="text-lg font-semibold text-main">
+                        {course.title}
+                      </h3>
+                      <p className="text-sm text-slate-400">{course.lessons}</p>
+                      <button
+                        onClick={() => navigate(`/learning/${course.id}`)}
+                        className="w-full py-3 rounded-xl bg-[#2DD4BF] text-white font-semibold"
+                      >
+                        {hasStarted ? t("common.continue_learning") : t("common.start_learning")}
+                      </button>
                     </div>
-                  );
-                })}
+                  </div>
+                );
+              })}
             </div>
           )}
 
@@ -315,10 +546,9 @@ const CoursesPage = () => {
                       </p>
                       <div className="flex justify-between items-center">
                         <div>
-                          <span className="line-through text-sm text-slate-400 mr-2">
+                          <span className="font-bold text-green-600">
                             {course.price}
                           </span>
-                          <span className="font-bold text-green-600">₹0</span>
                         </div>
                         <button
                           onClick={() => navigate(`/course-preview/${course.id}`)}
@@ -357,10 +587,9 @@ const CoursesPage = () => {
               {selectedCourse.category} • {selectedCourse.level}
             </p>
             <div className="flex justify-between items-center mt-4">
-              <span className="line-through text-slate-400">
+              <span className="text-lg font-bold text-green-600">
                 {selectedCourse.price}
               </span>
-              <span className="text-lg font-bold text-green-600">₹0</span>
             </div>
             <button
               onClick={handleEnroll}
