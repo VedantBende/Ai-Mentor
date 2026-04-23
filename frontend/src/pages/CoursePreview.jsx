@@ -268,13 +268,10 @@ export default function CoursePreview() {
           // (optional but recommended)
           window.dispatchEvent(new Event("refreshUnreadCount"));
 
-          // ✅ redirect user 
+          // ✅ redirect user
           navigate(`/courses/${selectedCourse.id}`);
+          return;
         }
-        await fetchUserProfile();
-        navigate("/courses", {
-          state: { activeTab: "my-courses" },
-        });
       } catch (err) {
         console.error(err);
         toast.error(err.message || "Enrollment failed");
