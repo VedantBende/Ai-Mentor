@@ -690,6 +690,13 @@ export default function Learning() {
     setIsNavigating(false);
   };
 
+  // Auto-play: when the current video ends, advance to the next lesson
+  // using the EXACT same flow as the manual "Next" button.
+  const handleVideoEnded = () => {
+    if (currentLessonIndex >= allLessons.length - 1) return; // last lesson — do nothing
+    handleNext();
+  };
+
   const togglePlay = () => {
     if (videoRef.current) {
       if (!selectedCelebrity && !isPlaying) {
@@ -756,7 +763,7 @@ export default function Learning() {
         // --- WATCH HISTORY VALIDATION FOR THE TEAM ---
         // During initial video load, browsers might briefly report duration as NaN or Infinity.
         // We MUST validate isFinite() and > 0, otherwise we will corrupt the database with NaN:NaN.
-        if (learningData?.currentLesson && isFinite(vidDuration) && vidDuration > 0 && !isNaN(currentProgressPercent)) {
+        if (learningData?.currentLesson && isFinite(vidDuration) && vidDuration > 0 && !isNaN(currentProgressPercent) && !isNavigating) {
            const formatDurationString = (secs) => {
              const m = Math.floor(secs / 60);
              const s = Math.floor(secs % 60);
@@ -1198,6 +1205,7 @@ export default function Learning() {
                 handleSeek={handleSeek}
                 toggleFullscreen={toggleFullscreen}
                 formatTime={formatTime}
+                onEnded={handleVideoEnded}
               />
 
               {/* Navigation Buttons */}
