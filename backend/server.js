@@ -71,7 +71,6 @@ app.use((err, req, res, next) => {
 
 const PORT = process.env.PORT || 5000;
 
-// Initialize database and start server
 const startServer = async () => {
   try {
     await connectDB();

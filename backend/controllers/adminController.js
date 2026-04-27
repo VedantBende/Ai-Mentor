@@ -4,6 +4,7 @@ import Admin from "../models/Admin.js";
 import User from "../models/User.js";
 import Course from "../models/Course.js";
 import Complaint from "../models/Complaint.js";
+import Report from "../models/Report.js";
 
 const ADMIN_TOKEN_TYPE = "admin";
 
@@ -218,10 +219,13 @@ const deleteAdmin = async (req, res) => {
 
 const getDashboardSummary = async (_req, res) => {
   try {
-    const [users, courses, complaints] = await Promise.all([
+    const [users, courses, totalComplaintsCount, pendingComplaintsCount, totalReportsCount, pendingReportsCount] = await Promise.all([
       User.findAll({ attributes: ["id", "name", "email", "createdAt", "purchasedCourses"] }),
       Course.findAll({ attributes: ["id", "title", "priceValue", "currency"] }),
-      Complaint.findAll({ attributes: ["id", "status", "createdAt"], order: [["createdAt", "DESC"]], limit: 30 }),
+      Complaint.count(),
+      Complaint.count({ where: { status: { [Op.ne]: "resolved" } } }),
+      Report.count(),
+      Report.count({ where: { status: "pending" } }),
     ]);
 
     const courseMap = mapCourseById(courses);
@@ -264,7 +268,8 @@ const getDashboardSummary = async (_req, res) => {
 
     const charts = Object.values(monthlyMap);
     const paymentsTotal = enrollments.reduce((sum, item) => sum + Number(item.amount || 0), 0);
-    const pendingComplaints = complaints.filter((c) => c.status !== "resolved").length;
+    const allTotalComplaints = totalComplaintsCount + totalReportsCount;
+    const allPendingComplaints = pendingComplaintsCount + pendingReportsCount;
 
     return res.json({
       success: true,
@@ -274,8 +279,8 @@ const getDashboardSummary = async (_req, res) => {
           totalCourses: courses.length,
           totalEnrollments: enrollments.length,
           totalPayments: paymentsTotal,
-          totalComplaints: complaints.length,
-          pendingComplaints,
+          totalComplaints: allTotalComplaints,
+          pendingComplaints: allPendingComplaints,
         },
         recent: {
           users: recentUsers,
@@ -427,7 +432,8 @@ const getAllEnrollments = async (req, res) => {
     const page = Math.max(toInt(req.query.page, 1), 1);
     const limit = Math.min(Math.max(toInt(req.query.limit, 10), 1), 100);
     const search = String(req.query.search || "").trim().toLowerCase();
-    const courseId = Number(req.query.courseId);
+    const courseIdRaw = req.query.courseId;
+    const courseId = courseIdRaw ? Number(courseIdRaw) : NaN;
     const userId = String(req.query.userId || "").trim();
     const status = String(req.query.status || "").trim();
 
@@ -469,7 +475,8 @@ const getAllPayments = async (req, res) => {
     const limit = Math.min(Math.max(toInt(req.query.limit, 10), 1), 100);
     const search = String(req.query.search || "").trim().toLowerCase();
     const status = String(req.query.status || "").trim();
-    const courseId = Number(req.query.courseId);
+    const courseIdRaw = req.query.courseId;
+    const courseId = courseIdRaw ? Number(courseIdRaw) : NaN;
     const userId = String(req.query.userId || "").trim();
 
     const [users, courses] = await Promise.all([

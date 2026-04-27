@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { Outlet } from "react-router-dom"; // Added missing import
 import Header from "./components/Header";
 import AdminSidebar from "./components/layout/AdminSidebar";
 import { PAGE_TITLES } from "./constants/adminNavigation";
@@ -32,14 +33,6 @@ function App() {
   const title = useMemo(() => PAGE_TITLES[page] ?? PAGE_TITLES.dashboard, [page]);
   const CurrentPage = PAGE_COMPONENTS[page] ?? DashboardPage;
 
-  if (token && isAdminRole(user?.role)) {
-    return <Navigate to="/dashboard" replace />;
-  }
-
-  return <Outlet />;
-}
-
-function App() {
   return (
     <div className="min-h-screen bg-canvas-alt text-main">
       <AdminSidebar

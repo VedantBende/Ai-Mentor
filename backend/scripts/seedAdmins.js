@@ -11,44 +11,90 @@ const seedAdmins = async () => {
     await connectDB();
     console.log("✅ Database connected\n");
 
-    // Super Admin
+    // 1. Super Admin Logic
     const superAdminEmail = process.env.SUPER_ADMIN_EMAIL;
-    const superAdminExists = await Admin.findOne({ where: { email: superAdminEmail } });
+    const superAdminName = process.env.SUPER_ADMIN_NAME;
+    const superAdminPassword = process.env.SUPER_ADMIN_PASSWORD;
 
-    if (superAdminExists) {
-      console.log(`⚠️  SuperAdmin with email ${superAdminEmail} already exists.`);
-    } else {
-      await Admin.create({
-        name: process.env.SUPER_ADMIN_NAME || "Super Admin",
-        email: superAdminEmail,
-        password: process.env.SUPER_ADMIN_PASSWORD,
-        role: "superAdmin",
-      });
-      console.log(`✅ SuperAdmin created successfully!`);
-      console.log(`   Email: ${superAdminEmail}`);
-      console.log(`   Name: ${process.env.SUPER_ADMIN_NAME || "Super Admin"}\n`);
-    }
-
-    // Regular Admin
-    const adminEmail = process.env.ADMIN_EMAIL;
-    if (adminEmail) {
-      const adminExists = await Admin.findOne({ where: { email: adminEmail } });
-
-      if (adminExists) {
-        console.log(`⚠️  Admin with email ${adminEmail} already exists.`);
-      } else {
+    if (superAdminEmail && superAdminName && superAdminPassword) {
+      const existingSuperAdmin = await Admin.findOne({ where: { email: superAdminEmail } });
+      
+      if (!existingSuperAdmin) {
         await Admin.create({
-          name: process.env.ADMIN_NAME || "Admin",
-          email: adminEmail,
-          password: process.env.ADMIN_PASSWORD,
-          role: "admin",
+          name: superAdminName,
+          email: superAdminEmail,
+          password: superAdminPassword,
+          role: "superAdmin",
         });
-        console.log(`✅ Admin created successfully!`);
-        console.log(`   Email: ${adminEmail}`);
-        console.log(`   Name: ${process.env.ADMIN_NAME || "Admin"}\n`);
+        console.log(`✅ Super Admin created successfully!`);
+        console.log(`   Email: ${superAdminEmail}`);
+        console.log(`   Name:  ${superAdminName}\n`);
+      } else {
+        let updated = false;
+        
+        if (existingSuperAdmin.name !== superAdminName) {
+          existingSuperAdmin.name = superAdminName;
+          updated = true;
+        }
+        
+        const isMatch = await existingSuperAdmin.matchPassword(superAdminPassword);
+        if (!isMatch) {
+          existingSuperAdmin.password = superAdminPassword;
+          updated = true;
+        }
+        
+        if (updated) {
+          await existingSuperAdmin.save();
+          console.log(`✅ Super Admin updated to match .env credentials: ${superAdminEmail}\n`);
+        } else {
+          console.log(`ℹ️  Super Admin already up to date: ${superAdminEmail}\n`);
+        }
       }
     } else {
-      console.log("⚠️  ADMIN_EMAIL not set in environment variables. Skipping regular admin creation.\n");
+      console.log("⚠️  Super Admin credentials missing from .env. Skipping.\n");
+    }
+
+    // 2. Regular Admin Logic
+    const adminEmail = process.env.ADMIN_EMAIL;
+    const adminName = process.env.ADMIN_NAME;
+    const adminPassword = process.env.ADMIN_PASSWORD;
+
+    if (adminEmail && adminName && adminPassword) {
+      const existingAdmin = await Admin.findOne({ where: { email: adminEmail } });
+      
+      if (!existingAdmin) {
+        await Admin.create({
+          name: adminName,
+          email: adminEmail,
+          password: adminPassword,
+          role: "admin",
+        });
+        console.log(`✅ Regular Admin created successfully!`);
+        console.log(`   Email: ${adminEmail}`);
+        console.log(`   Name:  ${adminName}\n`);
+      } else {
+        let updated = false;
+        
+        if (existingAdmin.name !== adminName) {
+          existingAdmin.name = adminName;
+          updated = true;
+        }
+        
+        const isMatch = await existingAdmin.matchPassword(adminPassword);
+        if (!isMatch) {
+          existingAdmin.password = adminPassword;
+          updated = true;
+        }
+        
+        if (updated) {
+          await existingAdmin.save();
+          console.log(`✅ Regular Admin updated to match .env credentials: ${adminEmail}\n`);
+        } else {
+          console.log(`ℹ️  Regular Admin already up to date: ${adminEmail}\n`);
+        }
+      }
+    } else {
+      console.log("⚠️  Regular Admin credentials missing from .env. Skipping.\n");
     }
 
     console.log("🎉 Admin seeding completed!\n");
