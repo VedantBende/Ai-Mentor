@@ -17,7 +17,7 @@ const SocialLogin = () => {
 
       // Call backend to exchange Google token for your JWT
       const res = await fetch(
-        `${API_BASE_URL}/api/auth/google-login`,
+        `${import.meta.env.VITE_API_BASE_URL}/api/auth/google-login`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },

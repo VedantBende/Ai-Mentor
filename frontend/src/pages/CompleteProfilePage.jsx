@@ -180,7 +180,7 @@ const CompleteProfilePage = () => {
       }
 
       const response = await fetch(
-        `${API_BASE_URL}/api/users/complete-profile`,
+        `${import.meta.env.VITE_API_BASE_URL}/api/users/complete-profile`,
         {
           method: "POST",
           headers: {

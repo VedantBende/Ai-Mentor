@@ -160,9 +160,9 @@ const CoursesPage = () => {
   }
 
   const filteredExploreCourses = exploreCourses
-  .filter((course) =>
-    !myCourses.some((c) => String(c.id) === String(course.id))
-  )
+    .filter((course) =>
+      !myCourses.some((c) => String(c.id) === String(course.id))
+    )
     .filter((course) => {
       if (searchQuery.trim() !== "") {
         return course.title.toLowerCase().includes(searchQuery.toLowerCase());
@@ -593,7 +593,8 @@ const CoursesPage = () => {
             </p>
             <div className="flex justify-between items-center mt-4">
               <span className="text-lg font-bold text-green-600">
-                ₹{selectedCourse.priceValue}              </span>
+                {selectedCourse.priceValue > 0 ? `₹${selectedCourse.priceValue}` : "Free"}
+              </span>
             </div>
             <button
               onClick={handleEnroll}

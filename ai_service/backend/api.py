@@ -24,9 +24,9 @@ from config import (
 # Cloudinary Config
 # --------------------------
 cloudinary.config(
-    cloud_name="dusaucow2",
-    api_key="186225514619958",
-    api_secret="WD3MMGNrELMyhlmNFtZuLiF-N-0s",
+    cloud_name=CLOUDINARY_CLOUD_NAME,
+    api_key=CLOUDINARY_API_KEY,
+    api_secret=CLOUDINARY_API_SECRET,
     secure=True,
 )
 
