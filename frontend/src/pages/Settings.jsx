@@ -247,7 +247,11 @@ export default function Settings() {
         setSettingsData(data);
         setOriginalNotifications(notifications);
         if (data?.appearance?.language) i18n.changeLanguage(data.appearance.language);
-      } catch (err) { console.error("Failed to fetch notification settings:", err); }
+      } catch (err) { 
+        console.error("Failed to fetch notification settings:", err); 
+      } finally {
+        setPageLoading(false);
+      }
     };
     fetchNotificationSettings();
   }, [user]);
